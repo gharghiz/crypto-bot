@@ -13,22 +13,22 @@ TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 # ============================================================
 # Timing (UTC)
 # ============================================================
-INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "30"))
-
-# أوقات الذروة بالـ UTC (المغرب = UTC+1)
-# 6-9 صباح UTC = 7-10 صباح المغرب
-# 17-22 UTC = 18-23 مساء المغرب
-PEAK_HOURS_UTC = list(range(6, 10)) + list(range(17, 23))
+INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "1"))
 
 # ============================================================
-# RSS Sources
+# RSS Sources - 10 مصادر
 # ============================================================
 RSS_FEEDS = [
-    {"name": "CoinTelegraph", "url": "https://cointelegraph.com/rss"},
-    {"name": "CoinDesk",      "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
-    {"name": "Decrypt",       "url": "https://decrypt.co/feed"},
-    {"name": "CryptoSlate",   "url": "https://cryptoslate.com/feed/"},
+    {"name": "CoinTelegraph",   "url": "https://cointelegraph.com/rss"},
+    {"name": "CoinDesk",        "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
+    {"name": "Decrypt",         "url": "https://decrypt.co/feed"},
+    {"name": "CryptoSlate",     "url": "https://cryptoslate.com/feed/"},
     {"name": "Bitcoin Magazine", "url": "https://bitcoinmagazine.com/feed"},
+    {"name": "NewsBTC",         "url": "https://www.newsbtc.com/feed/"},
+    {"name": "CryptoNews",      "url": "https://cryptonews.com/news/feed/"},
+    {"name": "BeInCrypto",      "url": "https://beincrypto.com/feed/"},
+    {"name": "The Block",       "url": "https://www.theblock.co/rss.xml"},
+    {"name": "Blockworks",      "url": "https://blockworks.co/feed"},
 ]
 
 # ============================================================
@@ -94,5 +94,10 @@ SIMILARITY_THRESHOLD = 0.80  # 80%
 # Posting
 # ============================================================
 MAX_POSTS_PER_CYCLE  = 5
-DELAY_BETWEEN_POSTS  = 5   # ثواني
+DELAY_BETWEEN_POSTS  = 3    # ثواني
 MAX_RETRIES_TELEGRAM = 3
+
+# ============================================================
+# Pin breaking news
+# ============================================================
+PIN_BREAKING_NEWS = True
