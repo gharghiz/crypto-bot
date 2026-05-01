@@ -1,15 +1,15 @@
 """
-bot.py - إرسال الرسائل وتثبيتها في تيليغرام
+bot.py - إرسال الرسائل وتثبيت الأخبار المؤثرة فقط
 """
 
 import time
 import requests
 from utils import logger
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MAX_RETRIES_TELEGRAM, PIN_BREAKING_NEWS
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MAX_RETRIES_TELEGRAM
 
 _session = requests.Session()
 
-def send_message(text: str) -> str | None:
+def send_message(text: str):
     """إرسال رسالة — يرجع message_id إيلا نجح"""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
@@ -36,21 +36,17 @@ def send_message(text: str) -> str | None:
             logger.warning(f"⚠️ محاولة {attempt}/{MAX_RETRIES_TELEGRAM} فشلت: {e}")
             time.sleep(3 * attempt)
 
-    logger.error("❌ فشل الإرسال بعد جميع المحاولات")
     return None
 
 def pin_message(message_id: int) -> bool:
-    """تثبيت رسالة في القناة"""
-    if not PIN_BREAKING_NEWS:
-        return False
+    """تثبيت رسالة — غير للأخبار العاجلة والمؤثرة فقط"""
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/pinChatMessage"
-        payload = {
+        resp = _session.post(url, json={
             "chat_id":              TELEGRAM_CHAT_ID,
             "message_id":           message_id,
             "disable_notification": False,
-        }
-        resp = _session.post(url, json=payload, timeout=10)
+        }, timeout=10)
         if resp.status_code == 200:
             logger.info("📌 تم تثبيت الرسالة")
             return True
