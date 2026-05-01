@@ -1,7 +1,9 @@
 """
-Crypto & Trading News Bot - Telegram Version
-ينشر أخبار التداول والعملات الرقمية في تيليغرام Channel
-مهيأ للنشر على Railway.app
+Crypto & Trading News Bot - Enhanced Version
+✅ سعر العملة مع كل خبر
+✅ تحليل المشاعر
+✅ أوقات النشر الذكية
+✅ تنبيهات عاجلة
 """
 
 import sys
@@ -11,9 +13,7 @@ print("🚀 البوت بدا يشتغل...", flush=True)
 
 try:
     import feedparser
-    print("✅ feedparser OK", flush=True)
     import requests
-    print("✅ requests OK", flush=True)
     import time
     import json
     import os
@@ -25,7 +25,7 @@ except Exception as e:
     sys.exit(1)
 
 # ============================================================
-# ⚙️ الإعدادات - تتقرأ من Environment Variables في Railway
+# ⚙️ الإعدادات
 # ============================================================
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -76,16 +76,123 @@ IMPORTANT_KEYWORDS = [
     "futures", "options", "whale", "institutional",
 ]
 
+# كلمات التنبيه العاجل
+URGENT_KEYWORDS = [
+    "hack", "hacked", "exploit", "crash", "ban", "banned",
+    "breaking", "urgent", "alert", "emergency", "collapse",
+    "sec", "lawsuit", "arrested", "scam", "rug pull"
+]
+
+# كلمات إيجابية وسلبية للمشاعر
+POSITIVE_WORDS = [
+    "surge", "rally", "pump", "bull", "record", "high", "gain",
+    "approved", "launch", "partnership", "adoption", "growth",
+    "profit", "rises", "jumps", "soars", "breakout", "ath"
+]
+
+NEGATIVE_WORDS = [
+    "crash", "dump", "bear", "ban", "hack", "fall", "drop",
+    "loss", "decline", "lawsuit", "warning", "risk", "fear",
+    "sell", "plunge", "tumbles", "falls", "exploit", "scam"
+]
+
+# العملات وكودها في CoinGecko
+COIN_MAP = {
+    "bitcoin": "bitcoin",   "btc": "bitcoin",
+    "ethereum": "ethereum", "eth": "ethereum",
+    "bnb": "binancecoin",
+    "solana": "solana",     "sol": "solana",
+    "xrp": "ripple",        "ripple": "ripple",
+    "cardano": "cardano",   "ada": "cardano",
+    "dogecoin": "dogecoin", "doge": "dogecoin",
+    "tether": "tether",     "usdt": "tether",
+}
+
+# ============================================================
+# 📊 جلب سعر العملة من CoinGecko (مجاني)
+# ============================================================
+
+def get_coin_price(title):
+    title_lower = title.lower()
+    coin_id = None
+
+    for keyword, cid in COIN_MAP.items():
+        if keyword in title_lower:
+            coin_id = cid
+            break
+
+    if not coin_id:
+        return None
+
+    try:
+        url = f"https://api.coingecko.com/api/v3/simple/price"
+        params = {
+            "ids": coin_id,
+            "vs_currencies": "usd",
+            "include_24hr_change": "true"
+        }
+        response = requests.get(url, params=params, timeout=5)
+        data = response.json()
+
+        if coin_id in data:
+            price  = data[coin_id]["usd"]
+            change = data[coin_id].get("usd_24h_change", 0)
+            change = round(change, 2)
+
+            # تنسيق السعر
+            if price >= 1:
+                price_str = f"${price:,.2f}"
+            else:
+                price_str = f"${price:.6f}"
+
+            arrow = "📈" if change >= 0 else "📉"
+            sign  = "+" if change >= 0 else ""
+            return f"{arrow} {price_str} ({sign}{change}%)"
+    except Exception as e:
+        print(f"⚠️ ما قدرناش نجيب السعر: {e}", flush=True)
+
+    return None
+
+# ============================================================
+# 😊 تحليل المشاعر
+# ============================================================
+
+def analyze_sentiment(title):
+    title_lower = title.lower()
+    pos_score = sum(1 for w in POSITIVE_WORDS if w in title_lower)
+    neg_score = sum(1 for w in NEGATIVE_WORDS if w in title_lower)
+
+    if pos_score > neg_score:
+        return "🟢"  # إيجابي
+    elif neg_score > pos_score:
+        return "🔴"  # سلبي
+    else:
+        return "🟡"  # محايد
+
+# ============================================================
+# ⚡ تحقق من الخبر العاجل
+# ============================================================
+
+def is_urgent(title):
+    title_lower = title.lower()
+    return any(keyword in title_lower for keyword in URGENT_KEYWORDS)
+
+# ============================================================
+# ⏰ أوقات النشر الذكية
+# ============================================================
+
+def is_peak_time():
+    # أوقات الذروة: 7-10 صباح و 6-11 مساء (توقيت المغرب GMT+1)
+    hour = datetime.now().hour
+    return (7 <= hour <= 10) or (18 <= hour <= 23)
+
 # ============================================================
 # 🔍 فلترة الأخبار
 # ============================================================
 
 def is_important(title):
     title_lower = title.lower()
-    for keyword in IMPORTANT_KEYWORDS:
-        if keyword.lower() in title_lower:
-            return True
-    return False
+    return any(keyword in title_lower for keyword in IMPORTANT_KEYWORDS)
 
 # ============================================================
 # 📰 جلب الأخبار من RSS
@@ -130,10 +237,10 @@ def save_posted(posted_ids):
 def post_to_telegram(text):
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
-        "chat_id":                TELEGRAM_CHAT_ID,
-        "text":                   text,
-        "parse_mode":             "HTML",
-        "disable_web_page_preview": False
+        "chat_id":                  TELEGRAM_CHAT_ID,
+        "text":                     text,
+        "parse_mode":               "HTML",
+        "disable_web_page_preview": True
     }
     try:
         response = requests.post(url, json=payload, timeout=10)
@@ -145,30 +252,42 @@ def post_to_telegram(text):
             return False
     except Exception as e:
         print(f"❌ خطأ في تيليغرام: {e}", flush=True)
-        traceback.print_exc()
         return False
 
 # ============================================================
 # ✍️ تنسيق الرسالة
 # ============================================================
 
-def format_message(news_item):
-    title    = news_item.get("title", "")
-    source   = news_item.get("source", "")
-    hashtags = "#Crypto #Trading #Bitcoin #BTC"
+def format_message(news_item, urgent=False):
+    title     = news_item.get("title", "")
+    source    = news_item.get("source", "")
+    sentiment = analyze_sentiment(title)
+    price     = get_coin_price(title)
+    hashtags  = "#Crypto #Trading #Bitcoin #BTC"
 
-    message = (
-        f"📰 <b>{title}</b>\n\n"
-        f"📌 {source}\n"
-        f"{hashtags}"
-    )
+    # هيدر الخبر العاجل
+    header = "⚡️ <b>خبر عاجل!</b>\n\n" if urgent else ""
+
+    # بناء الرسالة
+    message = f"{header}{sentiment} <b>{title}</b>\n\n"
+
+    if price:
+        message += f"💰 {price}\n\n"
+
+    message += f"📌 {source}\n{hashtags}"
+
     return message
 
 # ============================================================
 # 🚀 الدورة الرئيسية
 # ============================================================
 
-def run_once():
+def run_once(force=False):
+    # إيلا مو وقت ذروة ومو force (مو خبر عاجل) ما ننشروش
+    if not force and not is_peak_time():
+        print(f"⏳ مو وقت ذروة — ما غادي ننشروش دابا", flush=True)
+        return
+
     print(f"\n🔄 [{datetime.now().strftime('%H:%M:%S')}] جاري البحث عن أخبار جديدة...", flush=True)
 
     posted_ids     = load_posted()
@@ -182,16 +301,24 @@ def run_once():
     print(f"🎯 {len(important_news)} خبر مهم من أصل {len(all_news)}", flush=True)
 
     new_count = 0
-    for item in important_news[:5]:
+    for item in important_news:
         news_id = item["id"]
         if news_id in posted_ids:
             continue
 
-        message = format_message(item)
+        urgent  = is_urgent(item["title"])
+        message = format_message(item, urgent=urgent)
         post_to_telegram(message)
 
         posted_ids.add(news_id)
         new_count += 1
+
+        # أقصاه 5 في وقت الذروة، 1 للأخبار العاجلة
+        if urgent:
+            break
+        if new_count >= 5:
+            break
+
         time.sleep(5)
 
     save_posted(posted_ids)
@@ -203,21 +330,40 @@ def run_once():
 
 def main():
     check_env()
-    print(f"🤖 البوت شغال! سينشر كل {INTERVAL_MINUTES} دقيقة\n", flush=True)
+    print(f"🤖 البوت شغال! سيتحقق كل {INTERVAL_MINUTES} دقيقة\n", flush=True)
 
-    # رسالة ترحيبية
     post_to_telegram(
         f"🚀 <b>البوت بدا يشتغل!</b>\n\n"
-        f"⏱️ سينشر كل {INTERVAL_MINUTES} دقيقة\n"
-        f"⏰ {datetime.now().strftime('%H:%M - %d/%m/%Y')}"
+        f"⏱️ يتحقق كل {INTERVAL_MINUTES} دقيقة\n"
+        f"⏰ ينشر في أوقات الذروة: 7-10 صباح و 6-11 مساء\n"
+        f"⚡️ الأخبار العاجلة تنشر فوراً في أي وقت"
     )
 
     while True:
         try:
-            run_once()
+            # الأخبار العاجلة تنشر في أي وقت
+            posted_ids = load_posted()
+            all_news   = get_news_from_rss()
+            urgent_news = [
+                n for n in all_news
+                if is_urgent(n["title"]) and str(n["id"]) not in posted_ids
+            ]
+
+            if urgent_news:
+                print(f"⚡️ لقينا {len(urgent_news)} خبر عاجل!", flush=True)
+                for item in urgent_news[:2]:
+                    message = format_message(item, urgent=True)
+                    post_to_telegram(message)
+                    posted_ids.add(str(item["id"]))
+                    time.sleep(3)
+                save_posted(posted_ids)
+            else:
+                run_once()
+
         except Exception as e:
             print(f"❌ خطأ غير متوقع: {e}", flush=True)
             traceback.print_exc()
+
         print(f"😴 ينتظر {INTERVAL_MINUTES} دقيقة...", flush=True)
         time.sleep(INTERVAL_MINUTES * 60)
 
