@@ -154,16 +154,13 @@ def post_to_telegram(text):
 
 def format_message(news_item):
     title    = news_item.get("title", "")
-    url      = news_item.get("url", "")
     source   = news_item.get("source", "")
     hashtags = "#Crypto #Trading #Bitcoin #BTC"
 
     message = (
         f"📰 <b>{title}</b>\n\n"
-        f"🔗 <a href='{url}'>اقرأ المزيد</a>\n\n"
         f"📌 {source}\n"
-        f"{hashtags}\n\n"
-        f"⏰ {datetime.now().strftime('%H:%M - %d/%m/%Y')}"
+        f"{hashtags}"
     )
     return message
 
