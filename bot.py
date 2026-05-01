@@ -1,16 +1,16 @@
 """
-bot.py - إرسال الرسائل لتيليغرام
+bot.py - إرسال الرسائل وتثبيتها في تيليغرام
 """
 
 import time
 import requests
 from utils import logger
-from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MAX_RETRIES_TELEGRAM
+from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, MAX_RETRIES_TELEGRAM, PIN_BREAKING_NEWS
 
 _session = requests.Session()
 
-def send_message(text: str) -> bool:
-    """إرسال رسالة لتيليغرام مع retry"""
+def send_message(text: str) -> str | None:
+    """إرسال رسالة — يرجع message_id إيلا نجح"""
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id":                  TELEGRAM_CHAT_ID,
@@ -24,18 +24,39 @@ def send_message(text: str) -> bool:
             resp = _session.post(url, json=payload, timeout=10)
             if resp.status_code == 200:
                 logger.info("✅ تم النشر في تيليغرام")
-                return True
+                return resp.json()["result"]["message_id"]
             elif resp.status_code == 429:
-                # Rate limit
                 retry_after = resp.json().get("parameters", {}).get("retry_after", 10)
                 logger.warning(f"⏳ Rate limit — ننتظر {retry_after}s")
                 time.sleep(retry_after)
             else:
                 logger.error(f"❌ تيليغرام error {resp.status_code}: {resp.text}")
-                return False
+                return None
         except Exception as e:
             logger.warning(f"⚠️ محاولة {attempt}/{MAX_RETRIES_TELEGRAM} فشلت: {e}")
             time.sleep(3 * attempt)
 
     logger.error("❌ فشل الإرسال بعد جميع المحاولات")
-    return False
+    return None
+
+def pin_message(message_id: int) -> bool:
+    """تثبيت رسالة في القناة"""
+    if not PIN_BREAKING_NEWS:
+        return False
+    try:
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/pinChatMessage"
+        payload = {
+            "chat_id":              TELEGRAM_CHAT_ID,
+            "message_id":           message_id,
+            "disable_notification": False,
+        }
+        resp = _session.post(url, json=payload, timeout=10)
+        if resp.status_code == 200:
+            logger.info("📌 تم تثبيت الرسالة")
+            return True
+        else:
+            logger.warning(f"⚠️ فشل التثبيت: {resp.text}")
+            return False
+    except Exception as e:
+        logger.warning(f"⚠️ خطأ في التثبيت: {e}")
+        return False
