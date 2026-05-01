@@ -6,7 +6,7 @@ import sys
 import time
 import traceback
 
-from utils import logger, is_peak_time, now_utc
+from utils import logger, now_utc
 from config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
     INTERVAL_MINUTES, MAX_POSTS_PER_CYCLE, DELAY_BETWEEN_POSTS
@@ -14,7 +14,7 @@ from config import (
 from database import init_db, is_posted, mark_posted, get_recent_titles, cleanup_old
 from scraper import fetch_all_news
 from processor import is_important, is_breaking, is_high_impact, is_duplicate, format_message, prioritize
-from bot import send_message
+from bot import send_message, pin_message
 
 # ============================================================
 # Startup check
@@ -27,11 +27,10 @@ def check_env():
     logger.info("✅ جميع المفاتيح موجودة")
 
 # ============================================================
-# Process & enrich news
+# Enrich news with flags
 # ============================================================
 
 def enrich(news_list: list) -> list:
-    """إضافة flags لكل خبر"""
     enriched = []
     for item in news_list:
         title = item["title"]
@@ -43,30 +42,23 @@ def enrich(news_list: list) -> list:
     return enriched
 
 # ============================================================
-# Main cycle
+# Main cycle - ينشر دايماً بدون قيود وقت
 # ============================================================
 
-def run_cycle(force: bool = False):
+def run_cycle():
     logger.info(f"🔄 دورة جديدة — UTC {now_utc().strftime('%H:%M:%S')}")
 
-    # إيلا مو وقت ذروة ومو force، نشوفو الأخبار العاجلة فقط
-    peak = is_peak_time()
-
-    all_news   = fetch_all_news()
-    enriched   = enrich(all_news)
+    all_news    = fetch_all_news()
+    enriched    = enrich(all_news)
     prioritized = prioritize(enriched)
 
     recent_titles = get_recent_titles(100)
     posted_count  = 0
 
     for item in prioritized:
-        news_id = item["id"]
-        title   = item["title"]
+        news_id  = item["id"]
+        title    = item["title"]
         breaking = item.get("breaking", False)
-
-        # الأخبار العاجلة تنشر دايماً — الباقي غير في وقت الذروة أو force
-        if not breaking and not peak and not force:
-            continue
 
         # تحقق من قاعدة البيانات
         if is_posted(news_id):
@@ -78,13 +70,17 @@ def run_cycle(force: bool = False):
             continue
 
         # نشر
-        message = format_message(item)
-        success = send_message(message)
+        message    = format_message(item)
+        message_id = send_message(message)
 
-        if success:
+        if message_id:
             mark_posted(news_id, title, item["source"])
             recent_titles.append(title)
             posted_count += 1
+
+            # تثبيت الأخبار العاجلة والمؤثرة
+            if breaking or item.get("high_impact"):
+                pin_message(message_id)
 
         if posted_count >= MAX_POSTS_PER_CYCLE:
             break
@@ -100,18 +96,16 @@ def run_cycle(force: bool = False):
 def main():
     check_env()
     init_db()
+    cleanup_old(days=30)
 
     logger.info(f"🤖 البوت بدا | كل {INTERVAL_MINUTES} دقيقة | UTC")
 
     send_message(
         f"🚀 <b>البوت بدا يشتغل!</b>\n\n"
-        f"⏱ يتحقق كل {INTERVAL_MINUTES} دقيقة\n"
-        f"⚡️ الأخبار العاجلة تنشر فوراً\n"
+        f"⏱ ينشر كل {INTERVAL_MINUTES} دقيقة\n"
+        f"📌 الأخبار العاجلة تتثبت تلقائياً\n"
         f"🕐 {now_utc().strftime('%H:%M UTC')}"
     )
-
-    # تنظيف أسبوعي
-    cleanup_old(days=30)
 
     while True:
         try:
