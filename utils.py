@@ -29,16 +29,11 @@ logger = setup_logger()
 def now_utc():
     return datetime.now(timezone.utc)
 
-def is_peak_time():
-    from config import PEAK_HOURS_UTC
-    return now_utc().hour in PEAK_HOURS_UTC
-
 # ============================================================
 # HTML Safety
 # ============================================================
 
 def safe_html(text: str) -> str:
-    """تأمين النص قبل الإرسال لتيليغرام"""
     return html.escape(str(text))
 
 # ============================================================
@@ -46,7 +41,6 @@ def safe_html(text: str) -> str:
 # ============================================================
 
 def clean_url(url: str) -> str:
-    """إزالة tracking parameters من الروابط"""
     if not url:
         return ""
     url = re.sub(r'\?utm_[^&]*(&[^&]*)*', '', url)
@@ -59,11 +53,8 @@ def clean_url(url: str) -> str:
 # ============================================================
 
 def clean_title(title: str) -> str:
-    """تنظيف العنوان"""
     title = re.sub(r'\s+', ' ', title).strip()
-    # إزالة source prefix مثل "CoinDesk: "
     title = re.sub(r'^[\w\s]+:\s*', '', title) if ':' in title[:30] else title
-    # اقتصار العنوان على 200 حرف
     if len(title) > 200:
         title = title[:197] + "..."
     return title
