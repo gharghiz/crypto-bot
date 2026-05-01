@@ -1,8 +1,0 @@
-[phases.setup]
-nixPkgs = ["python311"]
-
-[phases.install]
-cmds = ["pip install feedparser tweepy"]
-
-[start]
-cmd = "python crypto_news_bot.py"
