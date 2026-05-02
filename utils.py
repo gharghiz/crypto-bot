@@ -7,9 +7,6 @@ import logging
 import re
 from datetime import datetime, timezone
 
-# ============================================================
-# Logging
-# ============================================================
 
 def setup_logger():
     logging.basicConfig(
@@ -22,39 +19,20 @@ def setup_logger():
 
 logger = setup_logger()
 
-# ============================================================
-# UTC Time
-# ============================================================
-
 def now_utc():
     return datetime.now(timezone.utc)
 
-# ============================================================
-# HTML Safety
-# ============================================================
-
 def safe_html(text: str) -> str:
     return html.escape(str(text))
-
-# ============================================================
-# URL Cleaning
-# ============================================================
 
 def clean_url(url: str) -> str:
     if not url:
         return ""
     url = re.sub(r'\?utm_[^&]*(&[^&]*)*', '', url)
     url = re.sub(r'&utm_[^&]*', '', url)
-    url = url.rstrip('?&')
-    return url
-
-# ============================================================
-# Title Cleaning
-# ============================================================
+    return url.rstrip('?&')
 
 def clean_title(title: str) -> str:
     title = re.sub(r'\s+', ' ', title).strip()
     title = re.sub(r'^[\w\s]+:\s*', '', title) if ':' in title[:30] else title
-    if len(title) > 200:
-        title = title[:197] + "..."
-    return title
+    return title[:197] + "..." if len(title) > 200 else title
