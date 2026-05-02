@@ -3,16 +3,12 @@ web.py - Flask web server
 """
 
 from flask import Flask, render_template, jsonify, request
-import os, sys
-
-# نضيفو المسار باش يلقى database.py
-sys.path.insert(0, os.path.dirname(__file__))
+import os
 
 from database import init_db, get_news, get_stats
 
 app = Flask(__name__)
 
-# إنشاء الجدول عند البداية
 init_db()
 
 @app.route("/")
