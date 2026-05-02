@@ -1,17 +1,17 @@
 """
 processor.py - معالجة وتحليل الأخبار
-فلتر الجودة المحلي + تحليل السوق + sentiment
 """
 
 import time
 import difflib
-from utils import logger, safe_html, now_utc
+import hashlib
+import requests
+from utils import logger, safe_html
 from config import (
     IMPORTANT_KEYWORDS, BREAKING_KEYWORDS, HIGH_IMPACT_KEYWORDS,
     POSITIVE_WORDS, NEGATIVE_WORDS, COIN_MAP,
-    COINGECKO_CACHE_SECONDS, SIMILARITY_THRESHOLD, MIN_QUALITY_SCORE
+    COINGECKO_CACHE_SECONDS, SIMILARITY_THRESHOLD,
 )
-import requests
 
 # ============================================================
 # CoinGecko Cache
@@ -19,8 +19,7 @@ import requests
 _price_cache = {}
 _session = requests.Session()
 
-def get_market_data(title: str) -> dict | None:
-    """جلب بيانات السوق الكاملة: سعر + تغيير 1h و 24h + market cap"""
+def get_market_data(title: str):
     title_lower = title.lower()
     coin_id = None
     for keyword, cid in COIN_MAP.items():
@@ -52,69 +51,28 @@ def get_market_data(title: str) -> dict | None:
         if not raw:
             return None
 
-        price     = raw.get("usd", 0)
-        change_1h = round(raw.get("usd_1h_change", 0), 2)
+        price      = raw.get("usd", 0)
+        change_1h  = round(raw.get("usd_1h_change", 0), 2)
         change_24h = round(raw.get("usd_24h_change", 0), 2)
-        mcap      = raw.get("usd_market_cap", 0)
+        mcap       = raw.get("usd_market_cap", 0)
 
         price_str = f"${price:,.2f}" if price >= 1 else f"${price:.6f}"
         mcap_str  = f"${mcap/1e9:.1f}B" if mcap >= 1e9 else f"${mcap/1e6:.0f}M"
 
-        def fmt_change(c):
-            sign  = "+" if c >= 0 else ""
-            arrow = "▲" if c >= 0 else "▼"
-            return f"{arrow} {sign}{c}%"
+        def fmt(c):
+            return f"{'▲' if c >= 0 else '▼'} {'+' if c >= 0 else ''}{c}%"
 
         result = {
-            "price":     price_str,
-            "change_1h":  fmt_change(change_1h),
-            "change_24h": fmt_change(change_24h),
+            "price":      price_str,
+            "change_1h":  fmt(change_1h),
+            "change_24h": fmt(change_24h),
             "mcap":       mcap_str,
-            "raw_24h":    change_24h,
         }
         _price_cache[coin_id] = (result, now)
         return result
     except Exception as e:
-        logger.warning(f"⚠️ CoinGecko error: {e}")
+        logger.warning(f"⚠️ CoinGecko: {e}")
         return None
-
-# ============================================================
-# Quality Score (فلتر محلي بدون AI)
-# ============================================================
-
-# كلمات ترفع النقطة
-HIGH_VALUE_WORDS = [
-    "billion", "trillion", "record", "all-time high", "ath",
-    "etf", "sec", "regulation", "blackrock", "federal reserve",
-    "halving", "hack", "exploit", "crash", "pump", "whale",
-    "institutional", "approved", "rejected", "ban", "lawsuit",
-]
-
-# كلمات تخفض النقطة (أخبار عادية ومملة)
-LOW_VALUE_WORDS = [
-    "opinion", "analysis", "weekly", "monthly", "roundup",
-    "interview", "podcast", "recap", "guide", "how to",
-    "explained", "what is", "basics", "beginner",
-]
-
-def quality_score(title: str) -> int:
-    """يعطي نقطة من 0 إلى 10 للخبر"""
-    t = title.lower()
-    score = 5  # نقطة ابتدائية
-
-    for w in HIGH_VALUE_WORDS:
-        if w in t:
-            score += 1
-
-    for w in LOW_VALUE_WORDS:
-        if w in t:
-            score -= 1
-
-    # خبر عاجل = نقطة قصوى
-    if any(k in t for k in BREAKING_KEYWORDS):
-        score += 3
-
-    return max(0, min(10, score))
 
 # ============================================================
 # Sentiment
@@ -126,7 +84,7 @@ def analyze_sentiment(title: str) -> str:
     neg = sum(1 for w in NEGATIVE_WORDS if w in t)
     if pos > neg:   return "🟢"
     elif neg > pos: return "🔴"
-    else:           return "🟡"
+    return "🟡"
 
 # ============================================================
 # Keyword checks
@@ -141,7 +99,6 @@ def is_breaking(title: str) -> bool:
     return any(k in t for k in BREAKING_KEYWORDS)
 
 def is_high_impact(title: str) -> bool:
-    """الأخبار لي تأثيرها قوي على السوق — هاد هي فقط لي تتثبت"""
     t = title.lower()
     return any(k in t for k in HIGH_IMPACT_KEYWORDS)
 
@@ -157,7 +114,7 @@ def is_duplicate(title: str, recent_titles: list) -> bool:
     return False
 
 # ============================================================
-# Engaging Rewrite
+# Format Message
 # ============================================================
 
 ENGAGEMENT_HOOKS = [
@@ -172,22 +129,14 @@ def rewrite_title(title: str, sentiment: str, breaking: bool, high_impact: bool)
     if breaking:
         return f"🚨 <b>BREAKING:</b> {t}"
     if high_impact:
-        if sentiment == "🟢":
-            return f"🚀 <b>{t}</b>"
-        elif sentiment == "🔴":
-            return f"⚠️ <b>{t}</b>"
+        return f"🚀 <b>{t}</b>" if sentiment == "🟢" else f"⚠️ <b>{t}</b>" if sentiment == "🔴" else f"🟡 <b>{t}</b>"
     return f"{sentiment} {t}"
 
 def get_engagement_hook(title: str, high_impact: bool) -> str:
     if not high_impact:
         return ""
-    import hashlib
     idx = int(hashlib.md5(title.encode()).hexdigest(), 16) % len(ENGAGEMENT_HOOKS)
     return f"\n\n💬 {ENGAGEMENT_HOOKS[idx]}"
-
-# ============================================================
-# Format Message
-# ============================================================
 
 def format_message(item: dict) -> str:
     title       = item["title"]
@@ -202,7 +151,6 @@ def format_message(item: dict) -> str:
     headline = rewrite_title(title, sentiment, breaking, high_impact)
     msg = f"{headline}\n\n"
 
-    # تحليل السوق الكامل
     if market:
         msg += (
             f"💰 {market['price']}\n"
