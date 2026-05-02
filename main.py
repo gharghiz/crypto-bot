@@ -1,28 +1,29 @@
 """
 main.py - نقطة البداية
-مع AI filter + تنبيهات السعر + تثبيت ذكي
+✅ ينشر دايماً بدون قيود وقت
+✅ تثبيت غير الأخبار المؤثرة على السوق
+✅ فلتر الجودة المحلي
+✅ تنبيهات السعر
 """
 
 import sys
 import time
 import traceback
 import requests
-
-from utils import logger, now_utc
+from utils import logger, now_utc, safe_html
 from config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
     INTERVAL_MINUTES, MAX_POSTS_PER_CYCLE, DELAY_BETWEEN_POSTS,
-    AI_SCORE_THRESHOLD, ANTHROPIC_API_KEY,
-    PRICE_ALERT_COINS, PRICE_ALERT_THRESHOLD, PRICE_ALERT_INTERVAL,
-    PIN_BREAKING_NEWS
+    PRICE_ALERT_COINS, PRICE_ALERT_THRESHOLD, PRICE_CHECK_INTERVAL,
+    MIN_QUALITY_SCORE,
 )
 from database import init_db, is_posted, mark_posted, get_recent_titles, cleanup_old
 from scraper import fetch_all_news
 from processor import (
     is_important, is_breaking, is_high_impact,
-    is_duplicate, format_message, prioritize, ai_score_news
+    is_duplicate, format_message, prioritize, quality_score
 )
-from bot import send_message, pin_message
+from bot import send_message, pin_message, send_price_alert
 
 # ============================================================
 # Startup check
@@ -32,24 +33,30 @@ def check_env():
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         logger.error("❌ TELEGRAM_BOT_TOKEN أو TELEGRAM_CHAT_ID ناقصين!")
         sys.exit(1)
-    if ANTHROPIC_API_KEY:
-        logger.info("🤖 AI Filter: مفعل")
-    else:
-        logger.info("🤖 AI Filter: غير مفعل — زيد ANTHROPIC_API_KEY في Variables")
     logger.info("✅ جميع المفاتيح موجودة")
 
 # ============================================================
-# Price Alerts
+# Price Alert System
 # ============================================================
-_last_prices     = {}
-_last_alert_time = {}
-_price_session   = requests.Session()
+
+_last_prices  = {}   # { coin_id: price }
+_last_price_check = 0
+
+_session = requests.Session()
 
 def check_price_alerts():
-    """تحقق من تحركات السعر الكبيرة وأرسل تنبيه"""
+    """يتحقق من تغييرات الأسعار ويبعت تنبيه إيلا تجاوزت الحد"""
+    global _last_price_check, _last_prices
+
+    now = time.time()
+    if now - _last_price_check < PRICE_CHECK_INTERVAL * 60:
+        return  # مزال ما حان وقت التحقق
+
+    _last_price_check = now
     coin_ids = ",".join(PRICE_ALERT_COINS.keys())
+
     try:
-        resp = _price_session.get(
+        resp = _session.get(
             "https://api.coingecko.com/api/v3/simple/price",
             params={
                 "ids": coin_ids,
@@ -60,39 +67,33 @@ def check_price_alerts():
         )
         data = resp.json()
     except Exception as e:
-        logger.warning(f"⚠️ Price alert check error: {e}")
+        logger.warning(f"⚠️ فشل جلب الأسعار: {e}")
         return
 
-    now = time.time()
     for coin_id, symbol in PRICE_ALERT_COINS.items():
-        raw    = data.get(coin_id, {})
-        price  = raw.get("usd", 0)
-        ch_1h  = raw.get("usd_1h_in_currency", 0)
-
-        if not price or ch_1h is None:
+        raw = data.get(coin_id, {})
+        if not raw:
             continue
 
-        # ما نبعتش تنبيه قبل PRICE_ALERT_INTERVAL ثانية
-        last_alert = _last_alert_time.get(coin_id, 0)
-        if now - last_alert < PRICE_ALERT_INTERVAL:
-            continue
+        price    = raw.get("usd", 0)
+        change1h = round(raw.get("usd_1h_change", 0), 2)
 
-        abs_change = abs(ch_1h)
-        if abs_change >= PRICE_ALERT_THRESHOLD:
-            direction = "🚀 pumping" if ch_1h > 0 else "📉 dumping"
-            sign      = "+" if ch_1h > 0 else ""
-            price_str = f"${price:,.2f}"
+        # إيلا التغيير في ساعة تجاوز الحد
+        if abs(change1h) >= PRICE_ALERT_THRESHOLD:
+            direction = "🚀 صعود" if change1h > 0 else "🔴 هبوط"
+            sign      = "+" if change1h > 0 else ""
+            price_str = f"${price:,.2f}" if price >= 1 else f"${price:.6f}"
+
             alert_msg = (
-                f"⚡️ <b>Price Alert — {symbol}</b>\n\n"
-                f"{direction} {sign}{round(ch_1h, 2)}% in the last hour!\n\n"
-                f"💰 Current Price: {price_str}\n\n"
+                f"⚡️ <b>تنبيه السعر — {symbol}</b>\n\n"
+                f"{direction} حاد في آخر ساعة!\n\n"
+                f"💰 السعر الحالي: {price_str}\n"
+                f"📈 التغيير (1h): {sign}{change1h}%\n\n"
                 f"#Crypto #{symbol} #PriceAlert"
             )
-            msg_id = send_message(alert_msg)
-            if msg_id:
-                pin_message(msg_id)
-                _last_alert_time[coin_id] = now
-                logger.info(f"⚡️ Price alert sent for {symbol}: {sign}{ch_1h}%")
+
+            logger.info(f"⚡️ تنبيه سعر: {symbol} {sign}{change1h}%")
+            send_price_alert(alert_msg)
 
 # ============================================================
 # Enrich news
@@ -104,21 +105,16 @@ def enrich(news_list: list) -> list:
         title = item["title"]
         if not is_important(title):
             continue
+
+        # فلتر الجودة
+        score = quality_score(title)
+        if score < MIN_QUALITY_SCORE:
+            logger.info(f"⬇️ جودة منخفضة ({score}/10): {title[:50]}")
+            continue
+
         item["breaking"]    = is_breaking(title)
         item["high_impact"] = is_high_impact(title)
-
-        # AI scoring — غير للأخبار غير العاجلة لتوفير وقت
-        if ANTHROPIC_API_KEY and not item["breaking"]:
-            score, comment = ai_score_news(title)
-            item["ai_score"]   = score
-            item["ai_comment"] = comment
-            if score < AI_SCORE_THRESHOLD:
-                logger.info(f"🤖 AI رفض الخبر (score {score}): {title[:60]}")
-                continue
-        else:
-            item["ai_score"]   = 10
-            item["ai_comment"] = ""
-
+        item["quality"]     = score
         enriched.append(item)
     return enriched
 
@@ -126,17 +122,11 @@ def enrich(news_list: list) -> list:
 # Main cycle
 # ============================================================
 
-_last_price_check = 0
-
 def run_cycle():
-    global _last_price_check
     logger.info(f"🔄 دورة جديدة — UTC {now_utc().strftime('%H:%M:%S')}")
 
-    # تحقق من تنبيهات السعر كل 5 دقائق
-    now = time.time()
-    if now - _last_price_check >= PRICE_ALERT_INTERVAL:
-        check_price_alerts()
-        _last_price_check = now
+    # تنبيهات السعر
+    check_price_alerts()
 
     all_news    = fetch_all_news()
     enriched    = enrich(all_news)
@@ -148,14 +138,14 @@ def run_cycle():
     for item in prioritized:
         news_id     = item["id"]
         title       = item["title"]
-        breaking    = item.get("breaking", False)
         high_impact = item.get("high_impact", False)
+        breaking    = item.get("breaking", False)
 
         if is_posted(news_id):
             continue
 
         if is_duplicate(title, recent_titles):
-            logger.info(f"🔁 خبر مشابه تجاهلناه: {title[:60]}")
+            logger.info(f"🔁 مشابه: {title[:60]}")
             continue
 
         message    = format_message(item)
@@ -166,16 +156,17 @@ def run_cycle():
             recent_titles.append(title)
             posted_count += 1
 
-            # تثبيت غير للأخبار العاجلة أو المؤثرة فقط
-            if PIN_BREAKING_NEWS and (breaking or high_impact):
+            # تثبيت غير الأخبار المؤثرة على السوق
+            if high_impact or breaking:
                 pin_message(message_id)
+                logger.info(f"📌 تثبيت خبر مؤثر: {title[:60]}")
 
         if posted_count >= MAX_POSTS_PER_CYCLE:
             break
 
         time.sleep(DELAY_BETWEEN_POSTS)
 
-    logger.info(f"✅ نشرنا {posted_count} خبر في هاد الدورة")
+    logger.info(f"✅ نشرنا {posted_count} خبر")
 
 # ============================================================
 # Entry point
@@ -186,15 +177,14 @@ def main():
     init_db()
     cleanup_old(days=30)
 
-    logger.info(f"🤖 البوت بدا | كل {INTERVAL_MINUTES} دقيقة | UTC")
+    logger.info(f"🤖 البوت بدا | كل {INTERVAL_MINUTES} دقيقة")
 
-    ai_status = "مفعل 🤖" if ANTHROPIC_API_KEY else "غير مفعل"
     send_message(
         f"🚀 <b>البوت بدا يشتغل!</b>\n\n"
         f"⏱ ينشر كل {INTERVAL_MINUTES} دقيقة\n"
-        f"📌 التثبيت: الأخبار العاجلة والمؤثرة فقط\n"
-        f"⚡️ تنبيهات السعر: مفعلة (تغيير {'>'} {PRICE_ALERT_THRESHOLD}% في ساعة)\n"
-        f"🤖 فلتر AI: {ai_status}\n"
+        f"📌 تثبيت الأخبار المؤثرة على السوق فقط\n"
+        f"⚡️ تنبيهات السعر عند تحرك ≥{PRICE_ALERT_THRESHOLD}% في ساعة\n"
+        f"🎯 فلتر الجودة: نقطة ≥{MIN_QUALITY_SCORE}/10\n"
         f"🕐 {now_utc().strftime('%H:%M UTC')}"
     )
 
@@ -202,7 +192,7 @@ def main():
         try:
             run_cycle()
         except Exception as e:
-            logger.error(f"❌ خطأ غير متوقع: {e}")
+            logger.error(f"❌ خطأ: {e}")
             traceback.print_exc()
 
         logger.info(f"😴 ينتظر {INTERVAL_MINUTES} دقيقة...")
