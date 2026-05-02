@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from utils import logger, now_utc
 from config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
-    INTERVAL_MINUTES, MAX_POSTS_PER_CYCLE, DELAY_BETWEEN_POSTS,
+    INTERVAL_MINUTES, MAX_POSTS_PER_CYCLE,
     PRICE_ALERT_COINS, PRICE_ALERT_THRESHOLD, PRICE_CHECK_INTERVAL,
 )
 from database import init_db, is_posted, mark_posted, get_recent_titles, cleanup_old
@@ -29,7 +29,7 @@ def check_env():
     logger.info("✅ جميع المفاتيح موجودة")
 
 # ============================================================
-# Price Alert System
+# Price Alerts
 # ============================================================
 
 _last_price_check = 0
@@ -54,7 +54,7 @@ def check_price_alerts():
         )
         data = resp.json()
     except Exception as e:
-        logger.warning(f"⚠️ فشل جلب الأسعار: {e}")
+        logger.warning(f"⚠️ فشل الأسعار: {e}")
         return
 
     for coin_id, symbol in PRICE_ALERT_COINS.items():
@@ -67,18 +67,17 @@ def check_price_alerts():
             sign      = "+" if change1h > 0 else ""
             direction = "🚀 Surge" if change1h > 0 else "🔴 Drop"
             price_str = f"${price:,.2f}" if price >= 1 else f"${price:.6f}"
-            alert_msg = (
+            send_price_alert(
                 f"⚡️ <b>Price Alert — {symbol}</b>\n\n"
                 f"{direction} in the last hour!\n\n"
-                f"💰 Price: {price_str}\n"
-                f"📈 1h Change: {sign}{change1h}%\n\n"
+                f"💰 {price_str}\n"
+                f"📈 1h: {sign}{change1h}%\n\n"
                 f"#Crypto #{symbol} #PriceAlert"
             )
-            logger.info(f"⚡️ Price alert: {symbol} {sign}{change1h}%")
-            send_price_alert(alert_msg)
+            logger.info(f"⚡️ {symbol} {sign}{change1h}%")
 
 # ============================================================
-# Enrich news
+# Enrich
 # ============================================================
 
 def enrich(news_list: list) -> list:
@@ -93,35 +92,42 @@ def enrich(news_list: list) -> list:
     return enriched
 
 # ============================================================
-# Process single item
+# Process single item — يحفظ AI في DB
 # ============================================================
 
-def process_item(item: dict, recent_titles: list):
+def process_item(args):
+    item, recent_titles = args
     news_id = item["id"]
     title   = item["title"]
 
     if is_posted(news_id):
         return None
-
     if is_duplicate(title, recent_titles):
         logger.info(f"🔁 مشابه: {title[:60]}")
         return None
 
-    msg        = format_message(item)
+    # format_message يرجع (text, ai_data)
+    msg, ai = format_message(item)
     message_id = send_message(msg)
 
     if message_id:
-        mark_posted(news_id, title, item["source"])
+        # نحفظ AI في قاعدة البيانات
+        mark_posted(
+            news_id, title, item["source"],
+            summary=ai.get("summary", ""),
+            sentiment=ai.get("sentiment", ""),
+            reason=ai.get("reason", "")
+        )
         return title
 
     return None
 
 # ============================================================
-# Main cycle — parallel
+# Main cycle
 # ============================================================
 
 def run_cycle():
-    logger.info(f"🔄 دورة جديدة — UTC {now_utc().strftime('%H:%M:%S')}")
+    logger.info(f"🔄 UTC {now_utc().strftime('%H:%M:%S')}")
 
     check_price_alerts()
 
@@ -131,11 +137,10 @@ def run_cycle():
     recent_titles = get_recent_titles(200)
     posted_count  = 0
 
+    items = prioritized[:MAX_POSTS_PER_CYCLE]
+
     with ThreadPoolExecutor(max_workers=3) as executor:
-        results = list(executor.map(
-            lambda item: process_item(item, recent_titles),
-            prioritized[:MAX_POSTS_PER_CYCLE]
-        ))
+        results = list(executor.map(process_item, [(item, recent_titles) for item in items]))
 
     for r in results:
         if r:
@@ -157,8 +162,8 @@ def main():
     send_message(
         f"🚀 <b>Bot Started!</b>\n\n"
         f"⏱ Every {INTERVAL_MINUTES} minute(s)\n"
-        f"🧠 AI insights enabled\n"
-        f"⚡️ Price alerts at ≥{PRICE_ALERT_THRESHOLD}%/hour\n"
+        f"🧠 AI for high-impact news only\n"
+        f"⚡️ Price alerts ≥{PRICE_ALERT_THRESHOLD}%/hour\n"
         f"🕐 {now_utc().strftime('%H:%M UTC')}"
     )
 
@@ -166,15 +171,15 @@ def main():
         try:
             run_cycle()
         except Exception as e:
-            logger.error(f"❌ خطأ: {e}")
+            logger.error(f"❌ {e}")
             traceback.print_exc()
-        logger.info(f"😴 ينتظر {INTERVAL_MINUTES} دقيقة...")
+        logger.info(f"😴 {INTERVAL_MINUTES} دقيقة...")
         time.sleep(INTERVAL_MINUTES * 60)
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        logger.critical(f"❌ خطأ فادح: {e}")
+        logger.critical(f"❌ {e}")
         traceback.print_exc()
         sys.exit(1)
