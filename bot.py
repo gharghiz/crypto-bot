@@ -1,5 +1,5 @@
 """
-bot.py - إرسال الرسائل وتثبيتها في تيليغرام
+bot.py - إرسال الرسائل لتيليغرام
 """
 
 import time
@@ -18,7 +18,6 @@ def send_message(text: str):
         "parse_mode":               "HTML",
         "disable_web_page_preview": True,
     }
-
     for attempt in range(1, MAX_RETRIES_TELEGRAM + 1):
         try:
             resp = _session.post(url, json=payload, timeout=10)
@@ -30,32 +29,12 @@ def send_message(text: str):
                 logger.warning(f"⏳ Rate limit — ننتظر {retry_after}s")
                 time.sleep(retry_after)
             else:
-                logger.error(f"❌ تيليغرام error {resp.status_code}: {resp.text}")
+                logger.error(f"❌ تيليغرام {resp.status_code}: {resp.text}")
                 return None
         except Exception as e:
-            logger.warning(f"⚠️ محاولة {attempt}/{MAX_RETRIES_TELEGRAM} فشلت: {e}")
+            logger.warning(f"⚠️ محاولة {attempt}/{MAX_RETRIES_TELEGRAM}: {e}")
             time.sleep(3 * attempt)
-
     return None
-
-def pin_message(message_id: int) -> bool:
-    """تثبيت رسالة — غير للأخبار المؤثرة على السوق"""
-    try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/pinChatMessage"
-        resp = _session.post(url, json={
-            "chat_id":              TELEGRAM_CHAT_ID,
-            "message_id":           message_id,
-            "disable_notification": False,
-        }, timeout=10)
-        if resp.status_code == 200:
-            logger.info("📌 تم تثبيت الخبر المؤثر")
-            return True
-        else:
-            logger.warning(f"⚠️ فشل التثبيت: {resp.text}")
-            return False
-    except Exception as e:
-        logger.warning(f"⚠️ خطأ في التثبيت: {e}")
-        return False
 
 def send_price_alert(text: str):
     """إرسال تنبيه سعر"""
