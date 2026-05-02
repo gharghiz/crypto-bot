@@ -10,7 +10,19 @@
 <meta property="og:description" content="{{ item.title }}">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="CryptositNews">
-<link rel="canonical" href="/news/{{ item.id }}">
+<link rel="canonical" href="{{ site_url }}/news/{{ item.id }}">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "NewsArticle",
+  "headline": "{{ item.title | replace('"', '\"') }}",
+  "datePublished": "{{ item.posted_at }}",
+  "publisher": {
+    "@type": "Organization",
+    "name": "CryptositNews"
+  }
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=Space+Mono&display=swap" rel="stylesheet">
 <style>
