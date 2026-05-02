@@ -11,6 +11,9 @@ TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 # Timing
 INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "1"))
 
+# OpenAI
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
 # RSS Sources
 RSS_FEEDS = [
     {"name": "CoinTelegraph",    "url": "https://cointelegraph.com/rss"},
@@ -87,9 +90,9 @@ PRICE_ALERT_THRESHOLD = float(os.environ.get("PRICE_ALERT_THRESHOLD", "3.0"))
 PRICE_CHECK_INTERVAL  = int(os.environ.get("PRICE_CHECK_INTERVAL", "5"))
 
 # Duplicate Detection
-SIMILARITY_THRESHOLD = 0.80
+SIMILARITY_THRESHOLD = 0.65
 
 # Posting
-MAX_POSTS_PER_CYCLE  = 5
-DELAY_BETWEEN_POSTS  = 3
+MAX_POSTS_PER_CYCLE  = 10
+DELAY_BETWEEN_POSTS  = 1
 MAX_RETRIES_TELEGRAM = 3
