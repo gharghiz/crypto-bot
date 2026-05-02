@@ -1,14 +1,12 @@
 """
-web.py - Flask web server
+web.py - Flask web server مع SEO
 """
 
 from flask import Flask, render_template, jsonify, request
 import os
-
 from database import init_db, get_news, get_stats
 
 app = Flask(__name__)
-
 init_db()
 
 @app.route("/")
@@ -23,6 +21,15 @@ def index():
         page=page, pages=pages,
         total=total, search=search
     )
+
+@app.route("/news/<path:news_id>")
+def news_page(news_id):
+    # نجيب الخبر من قاعدة البيانات
+    news, _ = get_news(page=1, per_page=1000)
+    item = next((n for n in news if n["id"] == news_id), None)
+    if not item:
+        return "Not Found", 404
+    return render_template("article.html", item=item)
 
 @app.route("/api/news")
 def api_news():
