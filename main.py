@@ -2,7 +2,7 @@
 main.py - نقطة البداية
 ✅ ينشر دايماً بدون قيود وقت
 ✅ تثبيت غير الأخبار المؤثرة على السوق
-✅ فلتر الجودة المحلي
+❌ تم إلغاء فلاتر الجودة والأهمية (ينشر كل الأخبار)
 ✅ تنبيهات السعر
 """
 
@@ -19,8 +19,8 @@ from config import (
 from database import init_db, is_posted, mark_posted, get_recent_titles, cleanup_old
 from scraper import fetch_all_news
 from processor import (
-    is_important, is_breaking, is_high_impact,
-    is_duplicate, format_message, prioritize
+    is_breaking, is_high_impact,
+    is_duplicate, format_message, prioritize, quality_score
 )
 from bot import send_message, send_price_alert
 
@@ -95,19 +95,20 @@ def check_price_alerts():
             send_price_alert(alert_msg)
 
 # ============================================================
-# Enrich news
+# Enrich news (بدون فلاتر حجب)
 # ============================================================
 
 def enrich(news_list: list) -> list:
     enriched = []
     for item in news_list:
         title = item["title"]
-        if not is_important(title):
-            continue
-
+        
+        # ✅ الفلاتر تم إلغاؤها: كنمرر كل الأخبار بلا ما نحسبهم
         item["breaking"]    = is_breaking(title)
         item["high_impact"] = is_high_impact(title)
+        item["quality"]     = quality_score(title) # بنحسبها بلا ما نمشيها، باش تخدم فالتثبيت
         enriched.append(item)
+        
     return enriched
 
 # ============================================================
@@ -130,9 +131,13 @@ def run_cycle():
     for item in prioritized:
         news_id     = item["id"]
         title       = item["title"]
+        high_impact = item.get("high_impact", False)
+        breaking    = item.get("breaking", False)
+
         if is_posted(news_id):
             continue
 
+        # كنحافظ على فلتر التكرار باش ما يصيفط نفس الخبر مرات
         if is_duplicate(title, recent_titles):
             logger.info(f"🔁 مشابه: {title[:60]}")
             continue
@@ -144,8 +149,6 @@ def run_cycle():
             mark_posted(news_id, title, item["source"])
             recent_titles.append(title)
             posted_count += 1
-
-
 
         if posted_count >= MAX_POSTS_PER_CYCLE:
             break
@@ -168,9 +171,9 @@ def main():
     send_message(
         f"🚀 <b>البوت بدا يشتغل!</b>\n\n"
         f"⏱ ينشر كل {INTERVAL_MINUTES} دقيقة\n"
-
+        f"📌 تثبيت الأخبار المؤثرة على السوق فقط\n"
         f"⚡️ تنبيهات السعر عند تحرك ≥{PRICE_ALERT_THRESHOLD}% في ساعة\n"
-        f"🎯 فلتر الجودة: نقطة ≥{MIN_QUALITY_SCORE}/10\n"
+        f"🔓 الفلاتر مغلقة (ينشر كل الأخبار)\n"
         f"🕐 {now_utc().strftime('%H:%M UTC')}"
     )
 
