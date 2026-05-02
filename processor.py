@@ -1,5 +1,6 @@
 """
 processor.py - معالجة وتحليل الأخبار
+AI غير للأخبار المهمة
 """
 
 import time
@@ -12,6 +13,7 @@ from config import (
     POSITIVE_WORDS, NEGATIVE_WORDS, COIN_MAP,
     COINGECKO_CACHE_SECONDS, SIMILARITY_THRESHOLD,
 )
+from ai import generate_ai_insight
 
 # ============================================================
 # CoinGecko Cache
@@ -92,24 +94,29 @@ def analyze_sentiment(title: str) -> str:
 
 def is_important(title: str) -> bool:
     t = title.lower()
+    if any(x in t for x in ["bitcoin", "ethereum", "btc", "eth"]):
+        return True
     return any(k in t for k in IMPORTANT_KEYWORDS)
 
 def is_breaking(title: str) -> bool:
-    t = title.lower()
-    return any(k in t for k in BREAKING_KEYWORDS)
+    return any(k in title.lower() for k in BREAKING_KEYWORDS)
 
 def is_high_impact(title: str) -> bool:
-    t = title.lower()
-    return any(k in t for k in HIGH_IMPACT_KEYWORDS)
+    return any(k in title.lower() for k in HIGH_IMPACT_KEYWORDS)
 
 # ============================================================
 # Duplicate Detection
 # ============================================================
 
 def is_duplicate(title: str, recent_titles: list) -> bool:
+    title = title.lower()
     for prev in recent_titles:
-        ratio = difflib.SequenceMatcher(None, title.lower(), prev.lower()).ratio()
-        if ratio >= SIMILARITY_THRESHOLD:
+        prev = prev.lower()
+        if title == prev:
+            return True
+        if title in prev or prev in title:
+            return True
+        if difflib.SequenceMatcher(None, title, prev).ratio() >= SIMILARITY_THRESHOLD:
             return True
     return False
 
@@ -132,21 +139,26 @@ def rewrite_title(title: str, sentiment: str, breaking: bool, high_impact: bool)
         return f"🚀 <b>{t}</b>" if sentiment == "🟢" else f"⚠️ <b>{t}</b>" if sentiment == "🔴" else f"🟡 <b>{t}</b>"
     return f"{sentiment} {t}"
 
-def get_engagement_hook(title: str, high_impact: bool) -> str:
-    if not high_impact:
-        return ""
-    idx = int(hashlib.md5(title.encode()).hexdigest(), 16) % len(ENGAGEMENT_HOOKS)
-    return f"\n\n💬 {ENGAGEMENT_HOOKS[idx]}"
-
-def format_message(item: dict) -> str:
+def format_message(item: dict) -> tuple:
+    """يرجع (message_text, ai_data) — AI data للتخزين في DB"""
     title       = item["title"]
     source      = item["source"]
     breaking    = item.get("breaking", False)
     high_impact = item.get("high_impact", False)
     sentiment   = analyze_sentiment(title)
     market      = get_market_data(title)
-    hook        = get_engagement_hook(title, high_impact)
     hashtags    = "#Crypto #Trading #Bitcoin #BTC"
+
+    # AI غير للأخبار المهمة — نوفرو التكلفة
+    ai = {"summary": "", "sentiment": "", "reason": ""}
+    if high_impact or breaking:
+        ai = generate_ai_insight(title)
+
+    # Engagement hook
+    hook = ""
+    if high_impact:
+        idx  = int(hashlib.md5(title.encode()).hexdigest(), 16) % len(ENGAGEMENT_HOOKS)
+        hook = f"\n\n💬 {ENGAGEMENT_HOOKS[idx]}"
 
     headline = rewrite_title(title, sentiment, breaking, high_impact)
     msg = f"{headline}\n\n"
@@ -154,12 +166,19 @@ def format_message(item: dict) -> str:
     if market:
         msg += (
             f"💰 {market['price']}\n"
-            f"⏱ 1h: {market['change_1h']}  |  📅 24h: {market['change_24h']}\n"
-            f"📊 MCap: {market['mcap']}\n\n"
+            f"⏱ 1h: {market['change_1h']}  |  📅 24h: {market['change_24h']}\n\n"
+        )
+
+    if ai["summary"]:
+        msg += (
+            f"🧠 <b>AI Insight</b>\n"
+            f"├ {safe_html(ai['summary'])}\n"
+            f"├ Sentiment: {safe_html(ai['sentiment'])}\n"
+            f"└ {safe_html(ai['reason'])}\n\n"
         )
 
     msg += f"📌 {safe_html(source)}\n{hashtags}{hook}"
-    return msg
+    return msg, ai
 
 # ============================================================
 # Prioritize
