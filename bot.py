@@ -58,8 +58,5 @@ def pin_message(message_id: int) -> bool:
         return False
 
 def send_price_alert(text: str):
-    """إرسال تنبيه سعر مع تثبيت"""
-    msg_id = send_message(text)
-    if msg_id:
-        pin_message(msg_id)
-    return msg_id
+    """إرسال تنبيه سعر"""
+    return send_message(text)
