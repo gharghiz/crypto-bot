@@ -15,13 +15,12 @@ from config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
     INTERVAL_MINUTES, MAX_POSTS_PER_CYCLE, DELAY_BETWEEN_POSTS,
     PRICE_ALERT_COINS, PRICE_ALERT_THRESHOLD, PRICE_CHECK_INTERVAL,
-    MIN_QUALITY_SCORE,
 )
 from database import init_db, is_posted, mark_posted, get_recent_titles, cleanup_old
 from scraper import fetch_all_news
 from processor import (
     is_important, is_breaking, is_high_impact,
-    is_duplicate, format_message, prioritize, quality_score
+    is_duplicate, format_message, prioritize
 )
 from bot import send_message, send_price_alert
 
@@ -106,15 +105,8 @@ def enrich(news_list: list) -> list:
         if not is_important(title):
             continue
 
-        # فلتر الجودة
-        score = quality_score(title)
-        if score < MIN_QUALITY_SCORE:
-            logger.info(f"⬇️ جودة منخفضة ({score}/10): {title[:50]}")
-            continue
-
         item["breaking"]    = is_breaking(title)
         item["high_impact"] = is_high_impact(title)
-        item["quality"]     = score
         enriched.append(item)
     return enriched
 
@@ -138,9 +130,6 @@ def run_cycle():
     for item in prioritized:
         news_id     = item["id"]
         title       = item["title"]
-        high_impact = item.get("high_impact", False)
-        breaking    = item.get("breaking", False)
-
         if is_posted(news_id):
             continue
 
