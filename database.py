@@ -22,7 +22,6 @@ if USE_POSTGRES:
     try:
         import psycopg2
         import psycopg2.extras
-        from urllib.parse import urlparse
         logger.info("✅ PostgreSQL mode")
     except ImportError:
         logger.warning("⚠️ psycopg2 غير موجود — SQLite")
@@ -31,25 +30,16 @@ else:
     logger.info("✅ SQLite mode")
 
 # ============================================================
-# Connections
+# Connection
 # ============================================================
 
 def get_pg_conn():
-    """اتصال PostgreSQL بـ URL parsing صحيح"""
-    from urllib.parse import urlparse
+    """اتصال مباشر بـ DATABASE_URL"""
     url = DATABASE_URL
-    # تحويل postgres:// → postgresql://
+    # psycopg2 محتاج postgresql:// مو postgres://
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
-    parsed = urlparse(url)
-    return psycopg2.connect(
-        host=parsed.hostname,
-        port=parsed.port or 5432,
-        database=parsed.path.lstrip("/"),
-        user=parsed.username,
-        password=parsed.password,
-        sslmode="require"
-    )
+    return psycopg2.connect(url, sslmode="require")
 
 def get_sqlite_conn():
     conn = sqlite3.connect(DB_PATH)
@@ -67,15 +57,11 @@ def init_db():
             cur  = conn.cursor()
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS posted_news (
-                    id        TEXT PRIMARY KEY,
-                    title     TEXT,
-                    source    TEXT,
-                    posted_at TEXT
+                    id TEXT PRIMARY KEY, title TEXT, source TEXT, posted_at TEXT
                 )
             """)
             conn.commit()
-            cur.close()
-            conn.close()
+            cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
                 conn.execute("""
@@ -103,7 +89,9 @@ def is_posted(news_id: str) -> bool:
             return result
         else:
             with get_sqlite_conn() as conn:
-                return conn.execute("SELECT 1 FROM posted_news WHERE id = ?", (news_id,)).fetchone() is not None
+                return conn.execute(
+                    "SELECT 1 FROM posted_news WHERE id = ?", (news_id,)
+                ).fetchone() is not None
     except Exception as e:
         logger.error(f"❌ is_posted: {e}")
         return False
@@ -215,7 +203,9 @@ def get_stats():
             with get_sqlite_conn() as conn:
                 total   = conn.execute("SELECT COUNT(*) FROM posted_news").fetchone()[0]
                 today   = conn.execute("SELECT COUNT(*) FROM posted_news WHERE posted_at >= date('now')").fetchone()[0]
-                sources = [{"name": r[0], "count": r[1]} for r in conn.execute("SELECT source, COUNT(*) as c FROM posted_news GROUP BY source ORDER BY c DESC").fetchall()]
+                sources = [{"name": r[0], "count": r[1]} for r in conn.execute(
+                    "SELECT source, COUNT(*) as c FROM posted_news GROUP BY source ORDER BY c DESC"
+                ).fetchall()]
         return {"total": total, "today": today, "sources": sources}
     except Exception as e:
         logger.error(f"❌ get_stats: {e}")
