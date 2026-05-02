@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoSit News — Live Crypto Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0a0a0f;
+    --surface:  #111118;
+    --card:     #16161f;
+    --border:   #1e1e2e;
+    --accent:   #00ff88;
+    --accent2:  #ff3e6c;
+    --accent3:  #7b61ff;
+    --text:     #e8e8f0;
+    --muted:    #555570;
+    --green:    #00ff88;
+    --red:      #ff3e6c;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+  }
+
+  .header-inner {
+    max-width: 1300px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    gap: 1.5rem;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    text-decoration: none;
+  }
+
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .7rem; font-weight: 700; color: #000;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .logo-text {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -.02em;
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-family: 'Space Mono', monospace;
+    font-size: .65rem;
+    color: var(--accent);
+    border: 1px solid rgba(0,255,136,.3);
+    padding: .25rem .6rem;
+    border-radius: 2px;
+  }
+
+  .live-dot {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1.5s ease infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: .4; transform: scale(.8); }
+  }
+
+  /* Search */
+  .search-wrap {
+    flex: 1;
+    max-width: 320px;
+    position: relative;
+  }
+
+  .search-wrap input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: .75rem;
+    padding: .5rem 1rem .5rem 2.2rem;
+    border-radius: 3px;
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .search-wrap input:focus { border-color: var(--accent3); }
+  .search-wrap input::placeholder { color: var(--muted); }
+
+  .search-icon {
+    position: absolute;
+    left: .7rem; top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: .8rem;
+  }
+
+  /* Translate toggle */
+  .translate-btn {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: .7rem;
+    padding: .4rem .8rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+
+  .translate-btn:hover { border-color: var(--accent3); color: var(--accent3); }
+  .translate-btn.active { background: var(--accent3); border-color: var(--accent3); color: #fff; }
+
+  /* ── Ticker ── */
+  .ticker-wrap {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow: hidden;
+    height: 36px;
+    display: flex;
+    align-items: center;
+  }
+
+  .ticker-label {
+    background: var(--accent);
+    color: #000;
+    font-family: 'Space Mono', monospace;
+    font-size: .65rem;
+    font-weight: 700;
+    padding: 0 .8rem;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    letter-spacing: .05em;
+  }
+
+  .ticker-track {
+    display: flex;
+    gap: 3rem;
+    padding: 0 2rem;
+    animation: ticker 30s linear infinite;
+    white-space: nowrap;
+  }
+
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  .ticker-item {
+    font-family: 'Space Mono', monospace;
+    font-size: .72rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    color: var(--muted);
+  }
+
+  .ticker-item .symbol { color: var(--text); font-weight: 700; }
+  .ticker-item .up   { color: var(--green); }
+  .ticker-item .down { color: var(--red); }
+
+  /* ── Main layout ── */
+  .container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  /* ── Stats bar ── */
+  .stats-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .stat-chip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: .5rem 1rem;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  .stat-chip .val {
+    font-family: 'Space Mono', monospace;
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .stat-chip .lbl {
+    font-size: .7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+
+  /* ── News Feed ── */
+  .section-title {
+    font-size: .65rem;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .news-grid { display: flex; flex-direction: column; gap: .6rem; }
+
+  .news-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem 1.2rem;
+    cursor: pointer;
+    transition: all .2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .news-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--border);
+    transition: background .2s;
+  }
+
+  .news-card:hover {
+    border-color: rgba(123,97,255,.4);
+    transform: translateX(3px);
+  }
+
+  .news-card:hover::before { background: var(--accent3); }
+  .news-card.breaking::before { background: var(--red); }
+  .news-card.high-impact::before { background: var(--accent); }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: .5rem;
+  }
+
+  .card-title {
+    font-size: .9rem;
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--text);
+    flex: 1;
+  }
+
+  .card-title.translated {
+    direction: rtl;
+    text-align: right;
+    font-size: .85rem;
+  }
+
+  .sentiment {
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    flex-wrap: wrap;
+  }
+
+  .source-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: .6rem;
+    color: var(--accent3);
+    border: 1px solid rgba(123,97,255,.3);
+    padding: .15rem .4rem;
+    border-radius: 2px;
+    text-transform: uppercase;
+  }
+
+  .time-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: .6rem;
+    color: var(--muted);
+  }
+
+  .breaking-tag {
+    font-family: 'Space Mono', monospace;
+    font-size: .6rem;
+    background: var(--red);
+    color: #fff;
+    padding: .15rem .4rem;
+    border-radius: 2px;
+    font-weight: 700;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink { 50% { opacity: .5; } }
+
+  .translate-card-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: .6rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    padding: .15rem .4rem;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all .15s;
+    margin-left: auto;
+  }
+
+  .translate-card-btn:hover { color: var(--accent3); border-color: var(--accent3); }
+
+  /* ── Sidebar ── */
+  .sidebar { position: sticky; top: 80px; }
+
+  .widget {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+  }
+
+  .widget-title {
+    font-family: 'Space Mono', monospace;
+    font-size: .65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin-bottom: 1rem;
+    padding-bottom: .6rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .source-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: .35rem 0;
+    border-bottom: 1px solid rgba(30,30,46,.5);
+  }
+
+  .source-row:last-child { border-bottom: none; }
+  .source-name { font-size: .78rem; color: var(--text); }
+  .source-count {
+    font-family: 'Space Mono', monospace;
+    font-size: .7rem;
+    color: var(--accent);
+  }
+
+  /* Telegram CTA */
+  .tg-cta {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(0,136,204,.3);
+    border-radius: 4px;
+    padding: 1.2rem;
+    text-align: center;
+  }
+
+  .tg-cta .tg-icon { font-size: 2rem; margin-bottom: .5rem; }
+  .tg-cta p { font-size: .78rem; color: var(--muted); margin-bottom: 1rem; line-height: 1.5; }
+
+  .tg-btn {
+    display: inline-block;
+    background: #0088cc;
+    color: #fff;
+    text-decoration: none;
+    font-family: 'Space Mono', monospace;
+    font-size: .7rem;
+    padding: .5rem 1.2rem;
+    border-radius: 3px;
+    transition: background .2s;
+  }
+
+  .tg-btn:hover { background: #006da8; }
+
+  /* ── Pagination ── */
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: .4rem;
+    margin-top: 2rem;
+  }
+
+  .pagination a, .pagination span {
+    font-family: 'Space Mono', monospace;
+    font-size: .7rem;
+    padding: .4rem .7rem;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: all .15s;
+  }
+
+  .pagination a:hover { border-color: var(--accent3); color: var(--accent3); }
+  .pagination span.current { background: var(--accent3); border-color: var(--accent3); color: #fff; }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 3rem;
+    padding: 1.5rem 2rem;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: .65rem;
+    color: var(--muted);
+  }
+
+  footer a { color: var(--accent3); text-decoration: none; }
+
+  /* ── Loading overlay ── */
+  .translating {
+    opacity: .5;
+    pointer-events: none;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: static; }
+    .stats-bar { gap: .5rem; }
+    .header-inner { flex-wrap: wrap; height: auto; padding: .5rem 0; }
+    .search-wrap { max-width: 100%; flex: 1 1 100%; order: 3; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="header-inner">
+    <a class="logo" href="/">
+      <div class="logo-icon">₿</div>
+      <span class="logo-text">Crypto<span>Sit</span> News</span>
+    </a>
+
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      LIVE FEED
+    </div>
+
+    <form class="search-wrap" method="get" action="/">
+      <span class="search-icon">⌕</span>
+      <input type="text" name="q" placeholder="Search news..." value="{{ search }}">
+    </form>
+
+    <button class="translate-btn" id="translateAll" onclick="toggleAllTranslations()">
+      🌐 عربي
+    </button>
+  </div>
+</header>
+
+<!-- Ticker -->
+<div class="ticker-wrap">
+  <div class="ticker-label">MARKET</div>
+  <div style="overflow:hidden; flex:1">
+    <div class="ticker-track" id="tickerTrack">
+      <span class="ticker-item"><span class="symbol">BTC</span> <span class="up" id="btc-price">loading...</span></span>
+      <span class="ticker-item"><span class="symbol">ETH</span> <span class="up" id="eth-price">loading...</span></span>
+      <span class="ticker-item"><span class="symbol">SOL</span> <span class="up" id="sol-price">loading...</span></span>
+      <span class="ticker-item"><span class="symbol">BNB</span> <span class="up" id="bnb-price">loading...</span></span>
+      <span class="ticker-item"><span class="symbol">XRP</span> <span class="up" id="xrp-price">loading...</span></span>
+      <!-- duplicate for seamless loop -->
+      <span class="ticker-item"><span class="symbol">BTC</span> <span class="up" id="btc-price2">loading...</span></span>
+      <span class="ticker-item"><span class="symbol">ETH</span> <span class="up" id="eth-price2">loading...</span></span>
+      <span class="ticker-item"><span class="symbol">SOL</span> <span class="up" id="sol-price2">loading...</span></span>
+      <span class="ticker-item"><span class="symbol">BNB</span> <span class="up" id="bnb-price2">loading...</span></span>
+      <span class="ticker-item"><span class="symbol">XRP</span> <span class="up" id="xrp-price2">loading...</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="container">
+  <div class="stats-bar">
+    <div class="stat-chip">
+      <span class="val">{{ stats.total }}</span>
+      <span class="lbl">Total News</span>
+    </div>
+    <div class="stat-chip">
+      <span class="val">{{ stats.today }}</span>
+      <span class="lbl">Today</span>
+    </div>
+    <div class="stat-chip">
+      <span class="val">{{ stats.sources|length }}</span>
+      <span class="lbl">Sources</span>
+    </div>
+    {% if search %}
+    <div class="stat-chip">
+      <span class="val">{{ total }}</span>
+      <span class="lbl">Results for "{{ search }}"</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="layout">
+    <!-- News Feed -->
+    <main>
+      <div class="section-title">Latest Intelligence</div>
+
+      {% if news %}
+      <div class="news-grid">
+        {% for item in news %}
+        {% set t = item.title | lower %}
+        {% set is_breaking = 'breaking' in t or 'urgent' in t or 'hack' in t or 'crash' in t %}
+        {% set is_high = 'etf' in t or 'sec' in t or 'halving' in t or 'ath' in t or 'whale' in t %}
+        {% set sentiment = '🟢' if ('surge' in t or 'pump' in t or 'bull' in t or 'rise' in t or 'gain' in t) else ('🔴' if ('crash' in t or 'dump' in t or 'fall' in t or 'ban' in t or 'hack' in t) else '🟡') %}
+
+        <article class="news-card {% if is_breaking %}breaking{% elif is_high %}high-impact{% endif %}"
+                 data-id="{{ loop.index }}">
+          <div class="card-top">
+            <div class="card-title" id="title-{{ loop.index }}">{{ item.title }}</div>
+            <span class="sentiment">{{ sentiment }}</span>
+          </div>
+          <div class="card-meta">
+            {% if is_breaking %}
+            <span class="breaking-tag">🚨 BREAKING</span>
+            {% endif %}
+            <span class="source-tag">{{ item.source }}</span>
+            <span class="time-tag">{{ item.posted_at[:16].replace('T',' ') }} UTC</span>
+            <button class="translate-card-btn"
+                    onclick="translateCard({{ loop.index }}, this)"
+                    data-original="{{ item.title }}"
+                    data-translated="">
+              🌐 AR
+            </button>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+
+      <!-- Pagination -->
+      {% if pages > 1 %}
+      <div class="pagination">
+        {% if page > 1 %}
+        <a href="?page={{ page-1 }}&q={{ search }}">← Prev</a>
+        {% endif %}
+        {% for p in range(1, pages+1) %}
+          {% if p == page %}
+          <span class="current">{{ p }}</span>
+          {% elif p <= 3 or p >= pages-2 or (p >= page-2 and p <= page+2) %}
+          <a href="?page={{ p }}&q={{ search }}">{{ p }}</a>
+          {% elif p == 4 or p == pages-3 %}
+          <span>…</span>
+          {% endif %}
+        {% endfor %}
+        {% if page < pages %}
+        <a href="?page={{ page+1 }}&q={{ search }}">Next →</a>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% else %}
+      <div style="text-align:center; padding:3rem; color:var(--muted); font-family:'Space Mono',monospace; font-size:.8rem;">
+        No news found{% if search %} for "{{ search }}"{% endif %}.<br><br>
+        <a href="/" style="color:var(--accent3);">← Clear search</a>
+      </div>
+      {% endif %}
+    </main>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- Telegram CTA -->
+      <div class="tg-cta">
+        <div class="tg-icon">✈️</div>
+        <p>Get breaking crypto news instantly on Telegram</p>
+        <a class="tg-btn" href="https://t.me/CryptositNews" target="_blank">
+          Join Channel →
+        </a>
+      </div>
+
+      <!-- Sources -->
+      <div class="widget">
+        <div class="widget-title">📡 News Sources</div>
+        {% for s in stats.sources %}
+        <div class="source-row">
+          <span class="source-name">{{ s.name }}</span>
+          <span class="source-count">{{ s.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </aside>
+  </div>
+</div>
+
+<footer>
+  <p>© 2025 CryptositNews — Powered by live RSS feeds &nbsp;|&nbsp;
+  <a href="https://t.me/CryptositNews" target="_blank">Telegram Channel</a></p>
+</footer>
+
+<script>
+// ── Live Prices ──
+async function loadPrices() {
+  try {
+    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin,ripple&vs_currencies=usd&include_24hr_change=true");
+    const d = await r.json();
+    const fmt = (coin, id1, id2) => {
+      const p = d[coin];
+      if (!p) return;
+      const c = p.usd_24h_change?.toFixed(2);
+      const cl = c >= 0 ? 'up' : 'down';
+      const txt = `$${p.usd.toLocaleString()} <span class="${cl}">${c >= 0 ? '+' : ''}${c}%</span>`;
+      document.getElementById(id1).innerHTML = txt;
+      document.getElementById(id2).innerHTML = txt;
+    };
+    fmt('bitcoin',     'btc-price', 'btc-price2');
+    fmt('ethereum',    'eth-price', 'eth-price2');
+    fmt('solana',      'sol-price', 'sol-price2');
+    fmt('binancecoin', 'bnb-price', 'bnb-price2');
+    fmt('ripple',      'xrp-price', 'xrp-price2');
+  } catch(e) {}
+}
+
+loadPrices();
+setInterval(loadPrices, 60000);
+
+// ── Translation (MyMemory free API) ──
+let allTranslated = false;
+
+async function translateText(text) {
+  const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|ar`);
+  const d = await r.json();
+  return d.responseData?.translatedText || text;
+}
+
+async function translateCard(idx, btn) {
+  const titleEl = document.getElementById(`title-${idx}`);
+  const original   = btn.dataset.original;
+  let translated   = btn.dataset.translated;
+
+  if (titleEl.classList.contains('translated')) {
+    // رجع للإنجليزية
+    titleEl.textContent = original;
+    titleEl.classList.remove('translated');
+    btn.textContent = '🌐 AR';
+    return;
+  }
+
+  if (!translated) {
+    btn.textContent = '⏳';
+    btn.disabled = true;
+    translated = await translateText(original);
+    btn.dataset.translated = translated;
+    btn.disabled = false;
+  }
+
+  titleEl.textContent = translated;
+  titleEl.classList.add('translated');
+  btn.textContent = '🌐 EN';
+}
+
+async function toggleAllTranslations() {
+  const btn = document.getElementById('translateAll');
+  allTranslated = !allTranslated;
+  btn.classList.toggle('active', allTranslated);
+  btn.textContent = allTranslated ? '🌐 English' : '🌐 عربي';
+
+  const cards = document.querySelectorAll('.translate-card-btn');
+  for (const cardBtn of cards) {
+    const idx      = cardBtn.closest('.news-card').dataset.id;
+    const titleEl  = document.getElementById(`title-${idx}`);
+    const original = cardBtn.dataset.original;
+
+    if (allTranslated && !titleEl.classList.contains('translated')) {
+      if (!cardBtn.dataset.translated) {
+        cardBtn.dataset.translated = await translateText(original);
+      }
+      titleEl.textContent = cardBtn.dataset.translated;
+      titleEl.classList.add('translated');
+      cardBtn.textContent = '🌐 EN';
+    } else if (!allTranslated && titleEl.classList.contains('translated')) {
+      titleEl.textContent = original;
+      titleEl.classList.remove('translated');
+      cardBtn.textContent = '🌐 AR';
+    }
+  }
+}
+</script>
+</body>
+</html>
