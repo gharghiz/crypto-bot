@@ -34,12 +34,14 @@ else:
 # ============================================================
 
 def get_pg_conn():
-    """اتصال مباشر بـ DATABASE_URL"""
     url = DATABASE_URL
-    # psycopg2 محتاج postgresql:// مو postgres://
+    # تحويل postgres:// → postgresql://
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
-    return psycopg2.connect(url, sslmode="require")
+    # زيد sslmode في الـ URL مباشرة
+    if "sslmode" not in url:
+        url += "?sslmode=require" if "?" not in url else "&sslmode=require"
+    return psycopg2.connect(url)
 
 def get_sqlite_conn():
     conn = sqlite3.connect(DB_PATH)
