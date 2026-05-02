@@ -6,6 +6,7 @@ import sys
 import time
 import traceback
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from utils import logger, now_utc
 from config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
@@ -92,7 +93,31 @@ def enrich(news_list: list) -> list:
     return enriched
 
 # ============================================================
-# Main cycle
+# Process single item
+# ============================================================
+
+def process_item(item: dict, recent_titles: list):
+    news_id = item["id"]
+    title   = item["title"]
+
+    if is_posted(news_id):
+        return None
+
+    if is_duplicate(title, recent_titles):
+        logger.info(f"🔁 مشابه: {title[:60]}")
+        return None
+
+    msg        = format_message(item)
+    message_id = send_message(msg)
+
+    if message_id:
+        mark_posted(news_id, title, item["source"])
+        return title
+
+    return None
+
+# ============================================================
+# Main cycle — parallel
 # ============================================================
 
 def run_cycle():
@@ -103,31 +128,19 @@ def run_cycle():
     all_news      = fetch_all_news()
     enriched      = enrich(all_news)
     prioritized   = prioritize(enriched)
-    recent_titles = get_recent_titles(100)
+    recent_titles = get_recent_titles(200)
     posted_count  = 0
 
-    for item in prioritized:
-        news_id = item["id"]
-        title   = item["title"]
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        results = list(executor.map(
+            lambda item: process_item(item, recent_titles),
+            prioritized[:MAX_POSTS_PER_CYCLE]
+        ))
 
-        if is_posted(news_id):
-            continue
-
-        if is_duplicate(title, recent_titles):
-            logger.info(f"🔁 مشابه: {title[:60]}")
-            continue
-
-        message_id = send_message(format_message(item))
-
-        if message_id:
-            mark_posted(news_id, title, item["source"])
-            recent_titles.append(title)
+    for r in results:
+        if r:
+            recent_titles.append(r)
             posted_count += 1
-
-        if posted_count >= MAX_POSTS_PER_CYCLE:
-            break
-
-        time.sleep(DELAY_BETWEEN_POSTS)
 
     logger.info(f"✅ نشرنا {posted_count} خبر")
 
@@ -143,8 +156,9 @@ def main():
 
     send_message(
         f"🚀 <b>Bot Started!</b>\n\n"
-        f"⏱ Posting every {INTERVAL_MINUTES} minute(s)\n"
-        f"⚡️ Price alerts at ≥{PRICE_ALERT_THRESHOLD}% move/hour\n"
+        f"⏱ Every {INTERVAL_MINUTES} minute(s)\n"
+        f"🧠 AI insights enabled\n"
+        f"⚡️ Price alerts at ≥{PRICE_ALERT_THRESHOLD}%/hour\n"
         f"🕐 {now_utc().strftime('%H:%M UTC')}"
     )
 
