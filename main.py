@@ -23,7 +23,7 @@ from processor import (
     is_important, is_breaking, is_high_impact,
     is_duplicate, format_message, prioritize, quality_score
 )
-from bot import send_message, pin_message, send_price_alert
+from bot import send_message, send_price_alert
 
 # ============================================================
 # Startup check
@@ -156,10 +156,7 @@ def run_cycle():
             recent_titles.append(title)
             posted_count += 1
 
-            # تثبيت غير الأخبار المؤثرة على السوق
-            if high_impact or breaking:
-                pin_message(message_id)
-                logger.info(f"📌 تثبيت خبر مؤثر: {title[:60]}")
+
 
         if posted_count >= MAX_POSTS_PER_CYCLE:
             break
