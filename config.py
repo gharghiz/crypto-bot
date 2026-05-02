@@ -45,7 +45,6 @@ BREAKING_KEYWORDS = [
     "collapse", "sec", "arrested", "scam", "rug pull"
 ]
 
-# الكلمات لي تأثيرها قوي على السوق فقط — هاد هي لي تتثبت
 HIGH_IMPACT_KEYWORDS = [
     "etf", "sec", "regulation", "crash", "pump", "halving",
     "blackrock", "federal reserve", "ban", "hack", "exploit",
@@ -87,9 +86,6 @@ PRICE_ALERT_COINS = {
 PRICE_ALERT_THRESHOLD = float(os.environ.get("PRICE_ALERT_THRESHOLD", "3.0"))
 PRICE_CHECK_INTERVAL  = int(os.environ.get("PRICE_CHECK_INTERVAL", "5"))
 
-# Quality Score
-MIN_QUALITY_SCORE = int(os.environ.get("MIN_QUALITY_SCORE", "4"))
-
 # Duplicate Detection
 SIMILARITY_THRESHOLD = 0.80
 
@@ -97,6 +93,3 @@ SIMILARITY_THRESHOLD = 0.80
 MAX_POSTS_PER_CYCLE  = 5
 DELAY_BETWEEN_POSTS  = 3
 MAX_RETRIES_TELEGRAM = 3
-
-# تثبيت غير الأخبار المؤثرة على السوق فقط
-PIN_HIGH_IMPACT_ONLY = True
