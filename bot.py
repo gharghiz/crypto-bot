@@ -1,5 +1,5 @@
 """
-bot.py - إرسال الرسائل وتثبيت الأخبار المؤثرة فقط
+bot.py - إرسال الرسائل وتثبيتها في تيليغرام
 """
 
 import time
@@ -39,7 +39,7 @@ def send_message(text: str):
     return None
 
 def pin_message(message_id: int) -> bool:
-    """تثبيت رسالة — غير للأخبار العاجلة والمؤثرة فقط"""
+    """تثبيت رسالة — غير للأخبار المؤثرة على السوق"""
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/pinChatMessage"
         resp = _session.post(url, json={
@@ -48,7 +48,7 @@ def pin_message(message_id: int) -> bool:
             "disable_notification": False,
         }, timeout=10)
         if resp.status_code == 200:
-            logger.info("📌 تم تثبيت الرسالة")
+            logger.info("📌 تم تثبيت الخبر المؤثر")
             return True
         else:
             logger.warning(f"⚠️ فشل التثبيت: {resp.text}")
@@ -56,3 +56,10 @@ def pin_message(message_id: int) -> bool:
     except Exception as e:
         logger.warning(f"⚠️ خطأ في التثبيت: {e}")
         return False
+
+def send_price_alert(text: str):
+    """إرسال تنبيه سعر مع تثبيت"""
+    msg_id = send_message(text)
+    if msg_id:
+        pin_message(msg_id)
+    return msg_id
