@@ -179,7 +179,7 @@ def main():
     send_message(
         f"🚀 <b>البوت بدا يشتغل!</b>\n\n"
         f"⏱ ينشر كل {INTERVAL_MINUTES} دقيقة\n"
-        f"📌 تثبيت الأخبار المؤثرة على السوق فقط\n"
+
         f"⚡️ تنبيهات السعر عند تحرك ≥{PRICE_ALERT_THRESHOLD}% في ساعة\n"
         f"🎯 فلتر الجودة: نقطة ≥{MIN_QUALITY_SCORE}/10\n"
         f"🕐 {now_utc().strftime('%H:%M UTC')}"
