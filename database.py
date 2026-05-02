@@ -1,5 +1,6 @@
 """
 database.py - PostgreSQL + SQLite fallback
+مع columns للـ AI
 """
 
 import os
@@ -35,10 +36,8 @@ else:
 
 def get_pg_conn():
     url = DATABASE_URL
-    # تحويل postgres:// → postgresql://
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
-    # زيد sslmode في الـ URL مباشرة
     if "sslmode" not in url:
         url += "?sslmode=require" if "?" not in url else "&sslmode=require"
     return psycopg2.connect(url)
@@ -49,7 +48,7 @@ def get_sqlite_conn():
     return conn
 
 # ============================================================
-# Init
+# Init — مع AI columns
 # ============================================================
 
 def init_db():
@@ -59,18 +58,36 @@ def init_db():
             cur  = conn.cursor()
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS posted_news (
-                    id TEXT PRIMARY KEY, title TEXT, source TEXT, posted_at TEXT
+                    id        TEXT PRIMARY KEY,
+                    title     TEXT,
+                    source    TEXT,
+                    posted_at TEXT,
+                    summary   TEXT,
+                    sentiment TEXT,
+                    reason    TEXT
                 )
             """)
+            # إيلا الجدول قديم بلا AI columns نزيدهم
+            for col in ["summary", "sentiment", "reason"]:
+                try:
+                    cur.execute(f"ALTER TABLE posted_news ADD COLUMN {col} TEXT")
+                except Exception:
+                    pass
             conn.commit()
             cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS posted_news (
-                        id TEXT PRIMARY KEY, title TEXT, source TEXT, posted_at TEXT
+                        id TEXT PRIMARY KEY, title TEXT, source TEXT, posted_at TEXT,
+                        summary TEXT, sentiment TEXT, reason TEXT
                     )
                 """)
+                for col in ["summary", "sentiment", "reason"]:
+                    try:
+                        conn.execute(f"ALTER TABLE posted_news ADD COLUMN {col} TEXT")
+                    except Exception:
+                        pass
                 conn.commit()
         logger.info("✅ DB جاهزة")
     except Exception as e:
@@ -99,26 +116,28 @@ def is_posted(news_id: str) -> bool:
         return False
 
 # ============================================================
-# mark_posted
+# mark_posted — مع AI data
 # ============================================================
 
-def mark_posted(news_id: str, title: str, source: str):
+def mark_posted(news_id: str, title: str, source: str,
+                summary: str = "", sentiment: str = "", reason: str = ""):
     posted_at = now_utc().isoformat()
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
             cur  = conn.cursor()
             cur.execute("""
-                INSERT INTO posted_news (id, title, source, posted_at)
-                VALUES (%s, %s, %s, %s) ON CONFLICT (id) DO NOTHING
-            """, (news_id, title, source, posted_at))
+                INSERT INTO posted_news (id, title, source, posted_at, summary, sentiment, reason)
+                VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING
+            """, (news_id, title, source, posted_at, summary, sentiment, reason))
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
-                conn.execute(
-                    "INSERT OR IGNORE INTO posted_news (id, title, source, posted_at) VALUES (?, ?, ?, ?)",
-                    (news_id, title, source, posted_at)
-                )
+                conn.execute("""
+                    INSERT OR IGNORE INTO posted_news
+                    (id, title, source, posted_at, summary, sentiment, reason)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (news_id, title, source, posted_at, summary, sentiment, reason))
                 conn.commit()
     except Exception as e:
         logger.error(f"❌ mark_posted: {e}")
@@ -127,7 +146,7 @@ def mark_posted(news_id: str, title: str, source: str):
 # get_recent_titles
 # ============================================================
 
-def get_recent_titles(limit: int = 100) -> list:
+def get_recent_titles(limit: int = 200) -> list:
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
@@ -144,6 +163,29 @@ def get_recent_titles(limit: int = 100) -> list:
     except Exception as e:
         logger.error(f"❌ get_recent_titles: {e}")
         return []
+
+# ============================================================
+# get_news_by_id — query مباشر للـ SEO page
+# ============================================================
+
+def get_news_by_id(news_id: str):
+    try:
+        if USE_POSTGRES:
+            conn = get_pg_conn()
+            cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cur.execute("SELECT * FROM posted_news WHERE id = %s", (news_id,))
+            row = cur.fetchone()
+            cur.close(); conn.close()
+            return dict(row) if row else None
+        else:
+            with get_sqlite_conn() as conn:
+                row = conn.execute(
+                    "SELECT * FROM posted_news WHERE id = ?", (news_id,)
+                ).fetchone()
+                return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"❌ get_news_by_id: {e}")
+        return None
 
 # ============================================================
 # get_news
