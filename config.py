@@ -4,25 +4,14 @@ config.py - جميع الإعدادات
 
 import os
 
-# ============================================================
 # Telegram
-# ============================================================
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 
-# ============================================================
-# Anthropic API (للذكاء الاصطناعي)
-# ============================================================
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-
-# ============================================================
 # Timing
-# ============================================================
 INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "1"))
 
-# ============================================================
-# RSS Sources - 10 مصادر
-# ============================================================
+# RSS Sources
 RSS_FEEDS = [
     {"name": "CoinTelegraph",    "url": "https://cointelegraph.com/rss"},
     {"name": "CoinDesk",         "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
@@ -36,9 +25,7 @@ RSS_FEEDS = [
     {"name": "Blockworks",       "url": "https://blockworks.co/feed"},
 ]
 
-# ============================================================
 # Keywords
-# ============================================================
 IMPORTANT_KEYWORDS = [
     "bitcoin", "btc", "ethereum", "eth", "bnb", "solana", "sol",
     "xrp", "ripple", "cardano", "ada", "dogecoin", "doge",
@@ -58,9 +45,11 @@ BREAKING_KEYWORDS = [
     "collapse", "sec", "arrested", "scam", "rug pull"
 ]
 
+# الكلمات لي تأثيرها قوي على السوق فقط — هاد هي لي تتثبت
 HIGH_IMPACT_KEYWORDS = [
-    "btc", "bitcoin", "ethereum", "eth", "etf", "sec",
-    "regulation", "crash", "pump", "halving", "blackrock"
+    "etf", "sec", "regulation", "crash", "pump", "halving",
+    "blackrock", "federal reserve", "ban", "hack", "exploit",
+    "all-time high", "ath", "liquidation", "whale", "breaking"
 ]
 
 POSITIVE_WORDS = [
@@ -75,9 +64,7 @@ NEGATIVE_WORDS = [
     "sell", "plunge", "tumbles", "falls", "exploit", "scam"
 ]
 
-# ============================================================
 # CoinGecko
-# ============================================================
 COIN_MAP = {
     "bitcoin": "bitcoin",   "btc": "bitcoin",
     "ethereum": "ethereum", "eth": "ethereum",
@@ -87,37 +74,29 @@ COIN_MAP = {
     "cardano": "cardano",   "ada": "cardano",
     "dogecoin": "dogecoin", "doge": "dogecoin",
 }
+COINGECKO_CACHE_SECONDS = 300
 
-COINGECKO_CACHE_SECONDS = 300  # 5 دقائق
-
-# ============================================================
 # Price Alerts
-# ============================================================
 PRICE_ALERT_COINS = {
-    "bitcoin":    "BTC",
-    "ethereum":   "ETH",
-    "solana":     "SOL",
+    "bitcoin":     "BTC",
+    "ethereum":    "ETH",
     "binancecoin": "BNB",
+    "solana":      "SOL",
+    "ripple":      "XRP",
 }
-PRICE_ALERT_THRESHOLD = 3.0   # % تغيير في ساعة يطلق التنبيه
-PRICE_CHECK_CACHE = {}        # { coin_id: (price, timestamp) }
-PRICE_ALERT_INTERVAL = 300    # كل 5 دقائق نتحقق من السعر
+PRICE_ALERT_THRESHOLD = float(os.environ.get("PRICE_ALERT_THRESHOLD", "3.0"))
+PRICE_CHECK_INTERVAL  = int(os.environ.get("PRICE_CHECK_INTERVAL", "5"))
 
-# ============================================================
-# AI Filter
-# ============================================================
-AI_SCORE_THRESHOLD  = 6       # من 10 — ما دون هاد الرقم ما ينشرش
-AI_CACHE_ENABLED    = True
+# Quality Score
+MIN_QUALITY_SCORE = int(os.environ.get("MIN_QUALITY_SCORE", "4"))
 
-# ============================================================
 # Duplicate Detection
-# ============================================================
 SIMILARITY_THRESHOLD = 0.80
 
-# ============================================================
 # Posting
-# ============================================================
 MAX_POSTS_PER_CYCLE  = 5
 DELAY_BETWEEN_POSTS  = 3
 MAX_RETRIES_TELEGRAM = 3
-PIN_BREAKING_NEWS    = True   # تثبيت الأخبار العاجلة والمؤثرة فقط
+
+# تثبيت غير الأخبار المؤثرة على السوق فقط
+PIN_HIGH_IMPACT_ONLY = True
