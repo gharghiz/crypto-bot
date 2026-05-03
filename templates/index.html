@@ -318,6 +318,37 @@ header {
 .pagination a:hover { border-color: var(--purple); color: var(--purple); }
 .pagination span.cur { background: var(--purple); border-color: var(--purple); color: #fff; }
 
+/* ── FEAR & GREED ── */
+.fg-wrap { text-align: center; padding: .5rem 0; }
+.fg-gauge {
+  width: 100%; height: 8px; background: var(--border);
+  border-radius: 4px; overflow: hidden; margin: .6rem 0;
+}
+.fg-fill {
+  height: 100%; border-radius: 4px;
+  transition: width .6s ease;
+}
+.fg-value { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; }
+.fg-label { font-family: var(--mono); font-size: .65rem; font-weight: 600; margin-bottom: .2rem; }
+.fg-sub { font-family: var(--mono); font-size: .58rem; color: var(--muted); }
+.fg-scale {
+  display: flex; justify-content: space-between;
+  font-family: var(--mono); font-size: .5rem; color: var(--muted); margin-top: .3rem;
+}
+
+/* ── TRENDING ── */
+.trend-row {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .35rem 0; border-bottom: 1px solid var(--border);
+}
+.trend-row:last-child { border: none; }
+.trend-rank { font-family: var(--mono); font-size: .6rem; color: var(--muted); width: 16px; }
+.trend-logo { width: 20px; height: 20px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+.trend-info { flex: 1; }
+.trend-name { font-size: .75rem; font-weight: 700; color: var(--text); }
+.trend-sym { font-family: var(--mono); font-size: .58rem; color: var(--muted); }
+.trend-change { font-family: var(--mono); font-size: .65rem; font-weight: 500; }
+
 /* ── FOOTER ── */
 footer {
   border-top: 1px solid var(--border); margin-top: 2rem;
@@ -529,6 +560,26 @@ footer a { color: var(--purple); text-decoration: none; }
         {% endfor %}
       </div>
 
+      <!-- Fear & Greed -->
+      <div class="widget" id="fgWidget">
+        <div class="widget-title">😱 Fear & Greed Index</div>
+        <div class="fg-wrap">
+          <div class="fg-value" id="fgValue">—</div>
+          <div class="fg-label" id="fgLabel">Loading...</div>
+          <div class="fg-gauge"><div class="fg-fill" id="fgFill" style="width:0%"></div></div>
+          <div class="fg-scale"><span>Extreme Fear</span><span>Neutral</span><span>Extreme Greed</span></div>
+          <div class="fg-sub" id="fgSub"></div>
+        </div>
+      </div>
+
+      <!-- Trending Coins -->
+      <div class="widget">
+        <div class="widget-title">🔥 Trending Coins</div>
+        <div id="trendingList">
+          <div style="font-family:var(--mono);font-size:.65rem;color:var(--muted);padding:.5rem 0">Loading...</div>
+        </div>
+      </div>
+
       {% if stats.sources %}
       <div class="widget">
         <div class="widget-title">📡 Sources</div>
@@ -603,6 +654,67 @@ async function loadPrices() {
   } catch(e) {}
 }
 loadPrices(); setInterval(loadPrices, 60000);
+
+// ── Fear & Greed ──
+async function loadFearGreed() {
+  try {
+    const r = await fetch('https://api.alternative.me/fng/?limit=1');
+    if (!r.ok) return;
+    const d = await r.json();
+    const val = parseInt(d.data[0].value);
+    const cls = d.data[0].value_classification;
+    const ts  = d.data[0].time_until_update;
+
+    document.getElementById('fgValue').textContent = val;
+    document.getElementById('fgLabel').textContent = cls;
+    document.getElementById('fgSub').textContent = `Updates in ${Math.floor(ts/3600)}h`;
+
+    const fill = document.getElementById('fgFill');
+    fill.style.width = val + '%';
+    const color =
+      val <= 25 ? '#ff3366' :
+      val <= 45 ? '#ff8c00' :
+      val <= 55 ? '#ffd700' :
+      val <= 75 ? '#7ec8e3' : '#00c97a';
+    fill.style.background = color;
+
+    const valEl = document.getElementById('fgValue');
+    valEl.style.color = color;
+    document.getElementById('fgLabel').style.color = color;
+  } catch(e) {}
+}
+loadFearGreed();
+setInterval(loadFearGreed, 300000); // كل 5 دقائق
+
+// ── Trending Coins ──
+async function loadTrending() {
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/search/trending');
+    if (!r.ok) return;
+    const d = await r.json();
+    const coins = d.coins?.slice(0, 7) || [];
+    const html = coins.map((c, i) => {
+      const coin = c.item;
+      const change = coin.data?.price_change_percentage_24h?.usd;
+      const chStr = change != null
+        ? `<span class="trend-change ${change>=0?'up':'dn'}">${change>=0?'+':''}${change.toFixed(1)}%</span>`
+        : '';
+      return `
+        <div class="trend-row">
+          <span class="trend-rank">${i+1}</span>
+          <img class="trend-logo" src="${coin.thumb}" alt="${coin.symbol}" loading="lazy">
+          <div class="trend-info">
+            <div class="trend-name">${coin.name}</div>
+            <div class="trend-sym">${coin.symbol}</div>
+          </div>
+          ${chStr}
+        </div>`;
+    }).join('');
+    document.getElementById('trendingList').innerHTML = html || '<div style="color:var(--muted);font-size:.7rem">No data</div>';
+  } catch(e) {}
+}
+loadTrending();
+setInterval(loadTrending, 300000); // كل 5 دقائق
 
 // ── Translation ──
 let allTranslated = false;
