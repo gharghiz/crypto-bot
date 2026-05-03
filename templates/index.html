@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CryptositNews — Live Crypto Intelligence</title>
 <meta name="description" content="Real-time crypto and trading news. Breaking news, price alerts, and AI insights.">
+<link rel="alternate" type="application/rss+xml" title="CryptositNews RSS Feed" href="/feed.xml">
+{% if gsc_meta %}<meta name="google-site-verification" content="{{ gsc_meta }}">{% endif %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
@@ -387,7 +389,8 @@ footer a { color: var(--purple); text-decoration: none; }
     <div class="header-actions">
       <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
       <button class="translate-btn" id="translateAll" onclick="toggleAllTranslations()">🌐 عربي</button>
-      <a class="tg-btn-h" href="https://t.me/CryptositNews" target="_blank">✈️ Telegram</a>
+      <a href="/feed.xml" title="RSS Feed" style="background:var(--bg);border:1px solid var(--border);color:#f26522;font-size:.75rem;width:32px;height:32px;border-radius:6px;display:flex;align-items:center;justify-content:center;text-decoration:none;transition:all .2s;flex-shrink:0" onmouseover="this.style.borderColor='#f26522'" onmouseout="this.style.borderColor='var(--border)'">⊕</a>
+<a class="tg-btn-h" href="https://t.me/CryptositNews" target="_blank">✈️ Telegram</a>
     </div>
   </div>
 </header>
