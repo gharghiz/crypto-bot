@@ -8,49 +8,59 @@ import os
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 
-# Timing
-INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "5"))
+# Timing — كل 15 دقيقة كافي
+INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "15"))
 
 # OpenAI
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
-# RSS Sources - 15 مصدر
+# RSS Sources — 25 مصدر متنوع
 RSS_FEEDS = [
+    # الكبار
     {"name": "CoinTelegraph",    "url": "https://cointelegraph.com/rss"},
     {"name": "CoinDesk",         "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
     {"name": "Decrypt",          "url": "https://decrypt.co/feed"},
+    {"name": "The Block",        "url": "https://www.theblock.co/rss.xml"},
+    {"name": "Blockworks",       "url": "https://blockworks.co/feed"},
+    # متوسطون
     {"name": "CryptoSlate",      "url": "https://cryptoslate.com/feed/"},
     {"name": "Bitcoin Magazine",  "url": "https://bitcoinmagazine.com/feed"},
     {"name": "NewsBTC",          "url": "https://www.newsbtc.com/feed/"},
     {"name": "CryptoNews",       "url": "https://cryptonews.com/news/feed/"},
     {"name": "BeInCrypto",       "url": "https://beincrypto.com/feed/"},
-    {"name": "The Block",        "url": "https://www.theblock.co/rss.xml"},
-    {"name": "Blockworks",       "url": "https://blockworks.co/feed"},
     {"name": "CoinGape",         "url": "https://coingape.com/feed/"},
     {"name": "AMBCrypto",        "url": "https://ambcrypto.com/feed/"},
     {"name": "U.Today",          "url": "https://u.today/rss"},
     {"name": "Bitcoinist",       "url": "https://bitcoinist.com/feed/"},
-    {"name": "CryptoSlate News", "url": "https://cryptoslate.com/news/feed/"},
+    # إضافيون
+    {"name": "Crypto Briefing",  "url": "https://cryptobriefing.com/feed/"},
+    {"name": "DailyCoin",        "url": "https://dailycoin.com/feed/"},
+    {"name": "Cryptopolitan",    "url": "https://www.cryptopolitan.com/feed/"},
+    {"name": "ZyCrypto",         "url": "https://zycrypto.com/feed/"},
+    {"name": "Coin Edition",     "url": "https://coinedition.com/feed/"},
+    {"name": "The Defiant",      "url": "https://thedefiant.io/feed"},
+    {"name": "DeFi Pulse",       "url": "https://defipulse.com/blog/feed/"},
+    {"name": "Unchained",        "url": "https://unchainedcrypto.com/feed/"},
+    {"name": "Protos",           "url": "https://protos.com/feed/"},
+    {"name": "Crypto Times",     "url": "https://www.thecryptotimes.com/feed/"},
+    {"name": "Coinspeaker",      "url": "https://www.coinspeaker.com/feed/"},
 ]
 
-# Keywords — موسعة باش ينشر أكثر
+# Keywords
 IMPORTANT_KEYWORDS = [
-    # عملات
     "bitcoin", "btc", "ethereum", "eth", "bnb", "solana", "sol",
     "xrp", "ripple", "cardano", "ada", "dogecoin", "doge",
     "crypto", "cryptocurrency", "blockchain", "web3", "token",
-    # أحداث
     "etf", "sec", "halving", "hack", "hacked", "exploit",
     "ban", "banned", "regulation", "legal", "lawsuit",
     "crash", "dump", "pump", "surge", "rally", "bull", "bear",
     "all-time high", "ath", "record", "billion", "million",
-    # مؤسسات
     "binance", "coinbase", "blackrock", "fed", "federal reserve",
     "tether", "usdt", "stablecoin", "defi", "nft",
-    # تداول
     "trading", "price", "market", "exchange", "liquidation",
     "futures", "options", "whale", "institutional", "wallet",
     "mining", "miner", "network", "protocol", "layer",
+    "launch", "partnership", "adoption", "investment",
 ]
 
 BREAKING_KEYWORDS = [
@@ -98,12 +108,15 @@ PRICE_ALERT_COINS = {
     "ripple":      "XRP",
 }
 PRICE_ALERT_THRESHOLD = float(os.environ.get("PRICE_ALERT_THRESHOLD", "3.0"))
-PRICE_CHECK_INTERVAL  = int(os.environ.get("PRICE_CHECK_INTERVAL", "5"))
+PRICE_CHECK_INTERVAL  = int(os.environ.get("PRICE_CHECK_INTERVAL", "15"))
 
-# Duplicate Detection — خففناها باش ينشر أكثر
+# Duplicate Detection
 SIMILARITY_THRESHOLD = 0.85
 
-# Posting — زدنا عدد المنشورات
-MAX_POSTS_PER_CYCLE  = 8
+# Posting — 10 في كل دورة
+MAX_POSTS_PER_CYCLE  = 10
 DELAY_BETWEEN_POSTS  = 2
 MAX_RETRIES_TELEGRAM = 3
+
+# حذف الأخبار بعد كم يوم
+CLEANUP_DAYS = 2  # يومين فقط باش تتنشر مرة أخرى
