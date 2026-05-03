@@ -238,7 +238,7 @@ def get_stats():
             cur  = conn.cursor()
             cur.execute("SELECT COUNT(*) FROM posted_news")
             total = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM posted_news WHERE posted_at::date = CURRENT_DATE")
+            cur.execute("SELECT COUNT(*) FROM posted_news WHERE posted_at >= (NOW() - INTERVAL '24 hours')::text")
             today = cur.fetchone()[0]
             cur.execute("SELECT source, COUNT(*) as c FROM posted_news GROUP BY source ORDER BY c DESC")
             sources = [{"name": r[0], "count": r[1]} for r in cur.fetchall()]
