@@ -1,9 +1,11 @@
 """
 main.py - نقطة البداية
+FIX: CLEANUP_DAYS من config + recent_titles thread-safe
 """
 
 import sys
 import time
+import threading
 import traceback
 import requests
 from concurrent.futures import ThreadPoolExecutor
@@ -12,6 +14,7 @@ from config import (
     TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID,
     INTERVAL_MINUTES, MAX_POSTS_PER_CYCLE,
     PRICE_ALERT_COINS, PRICE_ALERT_THRESHOLD, PRICE_CHECK_INTERVAL,
+    CLEANUP_DAYS,   # FIX: نستعمل المتغير من config بدل hard-code
 )
 from database import init_db, is_posted, mark_posted, get_recent_titles, cleanup_old
 from scraper import fetch_all_news
@@ -84,6 +87,7 @@ def enrich(news_list: list) -> list:
     enriched = []
     for item in news_list:
         title = item["title"]
+        # FIX: is_important الآن تفلتر فعلاً بـ keywords
         if not is_important(title):
             continue
         item["breaking"]    = is_breaking(title)
@@ -92,8 +96,10 @@ def enrich(news_list: list) -> list:
     return enriched
 
 # ============================================================
-# Process single item — يحفظ AI في DB
+# Process single item — thread-safe
 # ============================================================
+
+_recent_lock = threading.Lock()
 
 def process_item(args):
     item, recent_titles = args
@@ -102,22 +108,25 @@ def process_item(args):
 
     if is_posted(news_id):
         return None
+
+    # FIX: is_duplicate يستعمل lock داخلياً في processor.py
     if is_duplicate(title, recent_titles):
         logger.info(f"🔁 مشابه: {title[:60]}")
         return None
 
-    # format_message يرجع (text, ai_data)
     msg, ai = format_message(item)
     message_id = send_message(msg)
 
     if message_id:
-        # نحفظ AI في قاعدة البيانات
         mark_posted(
             news_id, title, item["source"],
             summary=ai.get("summary", ""),
             sentiment=ai.get("sentiment", ""),
             reason=ai.get("reason", "")
         )
+        # FIX: نضيف العنوان بشكل thread-safe
+        with _recent_lock:
+            recent_titles.append(title)
         return title
 
     return None
@@ -140,11 +149,13 @@ def run_cycle():
     items = prioritized[:MAX_POSTS_PER_CYCLE]
 
     with ThreadPoolExecutor(max_workers=3) as executor:
-        results = list(executor.map(process_item, [(item, recent_titles) for item in items]))
+        results = list(executor.map(
+            process_item,
+            [(item, recent_titles) for item in items]
+        ))
 
     for r in results:
         if r:
-            recent_titles.append(r)
             posted_count += 1
 
     logger.info(f"✅ نشرنا {posted_count} خبر")
@@ -156,7 +167,8 @@ def run_cycle():
 def main():
     check_env()
     init_db()
-    cleanup_old(days=30)
+    # FIX: نستعمل CLEANUP_DAYS من config بدل hard-code 30
+    cleanup_old(days=CLEANUP_DAYS)
     logger.info(f"🤖 البوت بدا | كل {INTERVAL_MINUTES} دقيقة")
 
     send_message(
