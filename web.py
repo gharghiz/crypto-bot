@@ -1,11 +1,12 @@
 """
 web.py - Flask web server
-RSS Feed + Cache + SEO
+FIX: urlencode في sitemap + category pages محسنة
 """
 
 from flask import Flask, render_template, jsonify, request, Response
 import os
 import time
+from urllib.parse import quote  # FIX: لـ sitemap URL encoding
 from database import init_db, get_news, get_news_by_id, get_stats
 
 app = Flask(__name__)
@@ -13,14 +14,14 @@ init_db()
 
 SITE_URL     = os.environ.get("SITE_URL", "https://rare-spontaneity-production-1b51.up.railway.app")
 SITE_NAME    = "CryptositNews"
-GSC_META_TAG = os.environ.get("GSC_META_TAG", "")  # Google Search Console verification
+GSC_META_TAG = os.environ.get("GSC_META_TAG", "")
 
 # ============================================================
 # Simple page cache
 # ============================================================
 
-_page_cache = {}
-PAGE_CACHE_TTL = 120  # ثانيتين
+_page_cache   = {}
+PAGE_CACHE_TTL = 120
 
 def page_cache_get(key):
     if key in _page_cache:
@@ -113,7 +114,7 @@ def news_page(news_id):
     return render_template("article.html", item=item, site_url=SITE_URL)
 
 # ============================================================
-# RSS Feed للموقع
+# RSS Feed
 # ============================================================
 
 @app.route("/feed")
@@ -129,12 +130,12 @@ def rss_feed():
     items   = []
 
     for item in news:
-        title     = item["title"].replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-        link      = f"{SITE_URL}/news/{item['id']}"
-        pub_date  = item["posted_at"][:19].replace("T", " ") + " UTC"
-        source    = item["source"].replace("&","&amp;")
-        desc      = item.get("summary", title)
-        desc      = desc.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+        title    = item["title"].replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+        link     = f"{SITE_URL}/news/{quote(item['id'], safe='')}"
+        pub_date = item["posted_at"][:19].replace("T", " ") + " UTC"
+        source   = item["source"].replace("&","&amp;")
+        desc     = item.get("summary", title)
+        desc     = desc.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 
         items.append(f"""  <item>
     <title>{title}</title>
@@ -174,9 +175,15 @@ def api_news():
         news = filter_by_category(news, cat)
     return jsonify({"news": news, "total": total})
 
+# FIX: /api/stats endpoint جديد
+@app.route("/api/stats")
+def api_stats():
+    return jsonify(get_stats())
+
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok"})
+    stats = get_stats()
+    return jsonify({"status": "ok", "total_news": stats.get("total", 0)})
 
 # ============================================================
 # SEO
@@ -191,18 +198,24 @@ def sitemap():
     news, _ = get_news(page=1, per_page=1000)
     urls = [f"<url><loc>{SITE_URL}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>"]
 
-    # Category pages
     for cat in ["bitcoin","ethereum","defi","nft","regulation","market","altcoin","breaking"]:
         urls.append(f"<url><loc>{SITE_URL}/?tab={cat}</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>")
 
     for item in news:
-        nid = item["id"].replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+        # FIX: urlencode صحيح بدل replace يدوي
+        nid = quote(item["id"], safe="")
         urls.append(
             f"<url><loc>{SITE_URL}/news/{nid}</loc>"
             f"<lastmod>{item['posted_at'][:10]}</lastmod>"
             f"<changefreq>never</changefreq><priority>0.8</priority></url>"
         )
-    xml = f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{"".join(urls)}\n</urlset>'
+
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        + "".join(urls)
+        + "\n</urlset>"
+    )
     page_cache_set("sitemap", xml)
     return Response(xml, mimetype="application/xml")
 
