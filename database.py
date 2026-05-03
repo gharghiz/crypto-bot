@@ -1,11 +1,13 @@
 """
-database.py - PostgreSQL + SQLite + Cache
+database.py - PostgreSQL (connection pool) + SQLite + Cache
+FIX: connection pool بدل فتح connection جديد كل مرة
 """
 
 import os
 import time
 import logging
 import sqlite3
+import threading
 from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -18,10 +20,15 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 DB_PATH      = os.environ.get("DB_PATH", "cryptobot.db")
 USE_POSTGRES = bool(DATABASE_URL and "postgres" in DATABASE_URL)
 
+# FIX: Connection pool للـ PostgreSQL
+_pg_pool = None
+_pool_lock = threading.Lock()
+
 if USE_POSTGRES:
     try:
         import psycopg2
         import psycopg2.extras
+        import psycopg2.pool
         logger.info("✅ PostgreSQL mode")
     except ImportError:
         logger.warning("⚠️ psycopg2 غير موجود — SQLite")
@@ -33,8 +40,8 @@ else:
 # Simple in-memory cache
 # ============================================================
 
-_cache = {}  # { key: (data, timestamp) }
-CACHE_TTL = 60  # ثانية
+_cache = {}
+CACHE_TTL = 60
 
 def cache_get(key):
     if key in _cache:
@@ -51,16 +58,39 @@ def cache_clear():
     _cache.clear()
 
 # ============================================================
-# Connection
+# Connection Pool
 # ============================================================
 
-def get_pg_conn():
+def _build_pg_url():
     url = DATABASE_URL
     if url.startswith("postgres://"):
         url = "postgresql://" + url[len("postgres://"):]
     if "sslmode" not in url:
         url += "?sslmode=require" if "?" not in url else "&sslmode=require"
-    return psycopg2.connect(url)
+    return url
+
+def get_pg_pool():
+    """FIX: يرجع pool مشترك بدل فتح connection جديد كل مرة"""
+    global _pg_pool
+    with _pool_lock:
+        if _pg_pool is None:
+            _pg_pool = psycopg2.pool.ThreadedConnectionPool(
+                minconn=1,
+                maxconn=5,
+                dsn=_build_pg_url()
+            )
+    return _pg_pool
+
+def get_pg_conn():
+    """يجيب connection من الـ pool"""
+    return get_pg_pool().getconn()
+
+def release_pg_conn(conn):
+    """يرجع connection للـ pool"""
+    try:
+        get_pg_pool().putconn(conn)
+    except Exception:
+        pass
 
 def get_sqlite_conn():
     conn = sqlite3.connect(DB_PATH)
@@ -75,19 +105,23 @@ def init_db():
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
-            cur  = conn.cursor()
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS posted_news (
-                    id TEXT PRIMARY KEY, title TEXT, source TEXT, posted_at TEXT,
-                    summary TEXT, sentiment TEXT, reason TEXT
-                )
-            """)
-            for col in ["summary", "sentiment", "reason"]:
-                try:
-                    cur.execute(f"ALTER TABLE posted_news ADD COLUMN {col} TEXT")
-                except Exception:
-                    pass
-            conn.commit(); cur.close(); conn.close()
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS posted_news (
+                        id TEXT PRIMARY KEY, title TEXT, source TEXT, posted_at TEXT,
+                        summary TEXT, sentiment TEXT, reason TEXT
+                    )
+                """)
+                for col in ["summary", "sentiment", "reason"]:
+                    try:
+                        cur.execute(f"ALTER TABLE posted_news ADD COLUMN {col} TEXT")
+                    except Exception:
+                        pass
+                conn.commit()
+                cur.close()
+            finally:
+                release_pg_conn(conn)
         else:
             with get_sqlite_conn() as conn:
                 conn.execute("""
@@ -114,14 +148,19 @@ def is_posted(news_id: str) -> bool:
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
-            cur  = conn.cursor()
-            cur.execute("SELECT 1 FROM posted_news WHERE id = %s", (news_id,))
-            result = cur.fetchone() is not None
-            cur.close(); conn.close()
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT 1 FROM posted_news WHERE id = %s", (news_id,))
+                result = cur.fetchone() is not None
+                cur.close()
+            finally:
+                release_pg_conn(conn)
             return result
         else:
             with get_sqlite_conn() as conn:
-                return conn.execute("SELECT 1 FROM posted_news WHERE id = ?", (news_id,)).fetchone() is not None
+                return conn.execute(
+                    "SELECT 1 FROM posted_news WHERE id = ?", (news_id,)
+                ).fetchone() is not None
     except Exception as e:
         logger.error(f"❌ is_posted: {e}")
         return False
@@ -136,12 +175,16 @@ def mark_posted(news_id: str, title: str, source: str,
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
-            cur  = conn.cursor()
-            cur.execute("""
-                INSERT INTO posted_news (id, title, source, posted_at, summary, sentiment, reason)
-                VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING
-            """, (news_id, title, source, posted_at, summary, sentiment, reason))
-            conn.commit(); cur.close(); conn.close()
+            try:
+                cur = conn.cursor()
+                cur.execute("""
+                    INSERT INTO posted_news (id, title, source, posted_at, summary, sentiment, reason)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING
+                """, (news_id, title, source, posted_at, summary, sentiment, reason))
+                conn.commit()
+                cur.close()
+            finally:
+                release_pg_conn(conn)
         else:
             with get_sqlite_conn() as conn:
                 conn.execute("""
@@ -150,7 +193,7 @@ def mark_posted(news_id: str, title: str, source: str,
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (news_id, title, source, posted_at, summary, sentiment, reason))
                 conn.commit()
-        cache_clear()  # تحديث الكاش
+        cache_clear()
     except Exception as e:
         logger.error(f"❌ mark_posted: {e}")
 
@@ -162,10 +205,15 @@ def get_recent_titles(limit: int = 200) -> list:
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
-            cur  = conn.cursor()
-            cur.execute("SELECT title FROM posted_news ORDER BY posted_at DESC LIMIT %s", (limit,))
-            rows = [r[0] for r in cur.fetchall()]
-            cur.close(); conn.close()
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    "SELECT title FROM posted_news ORDER BY posted_at DESC LIMIT %s", (limit,)
+                )
+                rows = [r[0] for r in cur.fetchall()]
+                cur.close()
+            finally:
+                release_pg_conn(conn)
             return rows
         else:
             with get_sqlite_conn() as conn:
@@ -184,14 +232,19 @@ def get_news_by_id(news_id: str):
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
-            cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            cur.execute("SELECT * FROM posted_news WHERE id = %s", (news_id,))
-            row = cur.fetchone()
-            cur.close(); conn.close()
+            try:
+                cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                cur.execute("SELECT * FROM posted_news WHERE id = %s", (news_id,))
+                row = cur.fetchone()
+                cur.close()
+            finally:
+                release_pg_conn(conn)
             return dict(row) if row else None
         else:
             with get_sqlite_conn() as conn:
-                row = conn.execute("SELECT * FROM posted_news WHERE id = ?", (news_id,)).fetchone()
+                row = conn.execute(
+                    "SELECT * FROM posted_news WHERE id = ?", (news_id,)
+                ).fetchone()
                 return dict(row) if row else None
     except Exception as e:
         logger.error(f"❌ get_news_by_id: {e}")
@@ -211,32 +264,49 @@ def get_news(page: int = 1, per_page: int = 20, search: str = None):
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
-            cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            if search:
-                cur.execute(
-                    "SELECT * FROM posted_news WHERE title ILIKE %s ORDER BY posted_at DESC LIMIT %s OFFSET %s",
-                    (f"%{search}%", per_page, offset)
-                )
-                rows = cur.fetchall()
-                cur.execute("SELECT COUNT(*) as count FROM posted_news WHERE title ILIKE %s", (f"%{search}%",))
-            else:
-                cur.execute(
-                    "SELECT * FROM posted_news ORDER BY posted_at DESC LIMIT %s OFFSET %s",
-                    (per_page, offset)
-                )
-                rows = cur.fetchall()
-                cur.execute("SELECT COUNT(*) as count FROM posted_news")
-            total = cur.fetchone()["count"]
-            cur.close(); conn.close()
+            try:
+                cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                if search:
+                    cur.execute(
+                        "SELECT * FROM posted_news WHERE title ILIKE %s ORDER BY posted_at DESC LIMIT %s OFFSET %s",
+                        (f"%{search}%", per_page, offset)
+                    )
+                    rows = cur.fetchall()
+                    cur.execute(
+                        "SELECT COUNT(*) as count FROM posted_news WHERE title ILIKE %s",
+                        (f"%{search}%",)
+                    )
+                else:
+                    cur.execute(
+                        "SELECT * FROM posted_news ORDER BY posted_at DESC LIMIT %s OFFSET %s",
+                        (per_page, offset)
+                    )
+                    rows = cur.fetchall()
+                    cur.execute("SELECT COUNT(*) as count FROM posted_news")
+                total = cur.fetchone()["count"]
+                cur.close()
+            finally:
+                release_pg_conn(conn)
             result = [dict(r) for r in rows], total
         else:
             with get_sqlite_conn() as conn:
                 if search:
-                    rows  = conn.execute("SELECT * FROM posted_news WHERE title LIKE ? ORDER BY posted_at DESC LIMIT ? OFFSET ?", (f"%{search}%", per_page, offset)).fetchall()
-                    total = conn.execute("SELECT COUNT(*) FROM posted_news WHERE title LIKE ?", (f"%{search}%",)).fetchone()[0]
+                    rows = conn.execute(
+                        "SELECT * FROM posted_news WHERE title LIKE ? ORDER BY posted_at DESC LIMIT ? OFFSET ?",
+                        (f"%{search}%", per_page, offset)
+                    ).fetchall()
+                    total = conn.execute(
+                        "SELECT COUNT(*) FROM posted_news WHERE title LIKE ?",
+                        (f"%{search}%",)
+                    ).fetchone()[0]
                 else:
-                    rows  = conn.execute("SELECT * FROM posted_news ORDER BY posted_at DESC LIMIT ? OFFSET ?", (per_page, offset)).fetchall()
-                    total = conn.execute("SELECT COUNT(*) FROM posted_news").fetchone()[0]
+                    rows = conn.execute(
+                        "SELECT * FROM posted_news ORDER BY posted_at DESC LIMIT ? OFFSET ?",
+                        (per_page, offset)
+                    ).fetchall()
+                    total = conn.execute(
+                        "SELECT COUNT(*) FROM posted_news"
+                    ).fetchone()[0]
                 result = [dict(r) for r in rows], total
 
         cache_set(cache_key, result)
@@ -257,18 +327,28 @@ def get_stats():
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
-            cur  = conn.cursor()
-            cur.execute("SELECT COUNT(*) FROM posted_news")
-            total = cur.fetchone()[0]
-            cur.execute("SELECT COUNT(*) FROM posted_news WHERE posted_at >= to_char(NOW() - INTERVAL '24 hours', 'YYYY-MM-DD\"T\"HH24:MI:SS')")
-            today = cur.fetchone()[0]
-            cur.execute("SELECT source, COUNT(*) as c FROM posted_news GROUP BY source ORDER BY c DESC")
-            sources = [{"name": r[0], "count": r[1]} for r in cur.fetchall()]
-            cur.close(); conn.close()
+            try:
+                cur = conn.cursor()
+                cur.execute("SELECT COUNT(*) FROM posted_news")
+                total = cur.fetchone()[0]
+                cur.execute("""
+                    SELECT COUNT(*) FROM posted_news
+                    WHERE posted_at >= to_char(NOW() - INTERVAL '24 hours', 'YYYY-MM-DD\"T\"HH24:MI:SS')
+                """)
+                today = cur.fetchone()[0]
+                cur.execute(
+                    "SELECT source, COUNT(*) as c FROM posted_news GROUP BY source ORDER BY c DESC"
+                )
+                sources = [{"name": r[0], "count": r[1]} for r in cur.fetchall()]
+                cur.close()
+            finally:
+                release_pg_conn(conn)
         else:
             with get_sqlite_conn() as conn:
                 total   = conn.execute("SELECT COUNT(*) FROM posted_news").fetchone()[0]
-                today   = conn.execute("SELECT COUNT(*) FROM posted_news WHERE posted_at >= datetime('now', '-1 day')").fetchone()[0]
+                today   = conn.execute(
+                    "SELECT COUNT(*) FROM posted_news WHERE posted_at >= datetime('now', '-1 day')"
+                ).fetchone()[0]
                 sources = [{"name": r[0], "count": r[1]} for r in conn.execute(
                     "SELECT source, COUNT(*) as c FROM posted_news GROUP BY source ORDER BY c DESC"
                 ).fetchall()]
@@ -281,20 +361,29 @@ def get_stats():
         return {"total": 0, "today": 0, "sources": []}
 
 # ============================================================
-# cleanup_old — يحذف بعد يومين فقط
+# cleanup_old
 # ============================================================
 
 def cleanup_old(days: int = 2):
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
-            cur  = conn.cursor()
-            cur.execute(f"DELETE FROM posted_news WHERE posted_at::timestamp < NOW() - INTERVAL '{days} days'")
-            deleted = cur.rowcount
-            conn.commit(); cur.close(); conn.close()
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    f"DELETE FROM posted_news WHERE posted_at::timestamp < NOW() - INTERVAL '{days} days'"
+                )
+                deleted = cur.rowcount
+                conn.commit()
+                cur.close()
+            finally:
+                release_pg_conn(conn)
         else:
             with get_sqlite_conn() as conn:
-                conn.execute("DELETE FROM posted_news WHERE posted_at < datetime('now', ?)", (f'-{days} days',))
+                conn.execute(
+                    "DELETE FROM posted_news WHERE posted_at < datetime('now', ?)",
+                    (f'-{days} days',)
+                )
                 deleted = conn.execute("SELECT changes()").fetchone()[0]
                 conn.commit()
         if deleted > 0:
