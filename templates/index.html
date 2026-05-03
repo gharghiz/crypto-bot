@@ -474,20 +474,18 @@ footer a { color: var(--purple); text-decoration: none; }
 
         {% if is_breaking %}
           {% set cat = 'breaking' %}
-        {% elif 'bitcoin' in t or ' btc ' in t or t.startswith('btc') or t.endswith('btc') %}
+        {% elif 'bitcoin' in t or 'btc' in t %}
           {% set cat = 'bitcoin' %}
-        {% elif 'ethereum' in t or ' eth ' in t or 'ether ' in t %}
+        {% elif 'ethereum' in t or 'eth' in t %}
           {% set cat = 'ethereum' %}
-        {% elif 'defi' in t or 'decentralized finance' in t or ' yield' in t or 'liquidity pool' in t or 'uniswap' in t or 'aave' in t %}
+        {% elif 'defi' in t or 'uniswap' in t or 'aave' in t or 'compound' in t or 'staking' in t or 'protocol' in t %}
           {% set cat = 'defi' %}
-        {% elif 'nft' in t or 'non-fungible' in t or 'opensea' in t or 'nfts' in t %}
+        {% elif 'nft' in t or 'non-fungible' in t or 'opensea' in t or 'metaverse' in t %}
           {% set cat = 'nft' %}
-        {% elif 'sec ' in t or 'regulation' in t or ' law ' in t or 'legal' in t or 'congress' in t or 'government' in t or 'legislation' in t %}
+        {% elif 'sec' in t or 'regulation' in t or 'legal' in t or 'congress' in t or 'government' in t or 'legislation' in t or 'ban' in t or 'lawsuit' in t %}
           {% set cat = 'regulation' %}
-        {% elif 'solana' in t or 'cardano' in t or 'ripple' in t or 'dogecoin' in t or ' ada ' in t or ' xrp ' in t or ' bnb ' in t or ' doge ' in t or 'binance coin' in t %}
+        {% elif 'solana' in t or 'sol' in t or 'cardano' in t or 'ada' in t or 'ripple' in t or 'xrp' in t or 'dogecoin' in t or 'doge' in t or 'bnb' in t or 'binance' in t or 'altcoin' in t or 'shiba' in t %}
           {% set cat = 'altcoin' %}
-        {% elif 'market' in t or 'price' in t or 'trading' in t or 'bull' in t or 'bear' in t or 'rally' in t or 'dump' in t or 'pump' in t %}
-          {% set cat = 'market' %}
         {% else %}
           {% set cat = 'market' %}
         {% endif %}
@@ -595,39 +593,46 @@ footer a { color: var(--purple); text-decoration: none; }
 
 <script>
 // ── Prices ──
-const COIN_IDS = {
-  BTC:'bitcoin', ETH:'ethereum', SOL:'solana', BNB:'binancecoin', XRP:'ripple'
-};
-const TICKER_IDS = {
-  btc:'bitcoin', eth:'ethereum', sol:'solana', bnb:'binancecoin', xrp:'ripple'
-};
+const COINS = [
+  {sym:'BTC', id:'bitcoin'},
+  {sym:'ETH', id:'ethereum'},
+  {sym:'SOL', id:'solana'},
+  {sym:'BNB', id:'binancecoin'},
+  {sym:'XRP', id:'ripple'}
+];
 
 async function loadPrices() {
   try {
-    const ids = Object.values(COIN_IDS).join(',');
-    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
+    const ids = COINS.map(c=>c.id).join(',');
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`;
+    const r = await fetch(url, {headers:{'Accept':'application/json'}});
+    if (!r.ok) return;
     const d = await r.json();
 
-    // Sidebar prices
-    for (const [sym, id] of Object.entries(COIN_IDS)) {
-      const el = document.getElementById(`price-${sym}`);
-      if (!el || !d[id]) continue;
-      const p = d[id].usd, c = d[id].usd_24h_change?.toFixed(2);
-      el.innerHTML = `$${p.toLocaleString()} <span style="font-size:.6rem;color:${c>=0?'var(--green)':'var(--red)'}">${c>=0?'+':''}${c}%</span>`;
-      el.className = `coin-price ${c>=0?'up':'dn'}`;
-    }
+    COINS.forEach(({sym, id}) => {
+      const data = d[id];
+      if (!data) return;
+      const p = data.usd;
+      const c = (data.usd_24h_change || 0).toFixed(2);
+      const isUp = parseFloat(c) >= 0;
+      const pStr = `$${p.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+      const cStr = `${isUp?'+':''}${c}%`;
+      const cls = isUp ? 'up' : 'dn';
 
-    // Ticker
-    for (const [sym, id] of Object.entries(TICKER_IDS)) {
-      const p = d[id]?.usd, c = d[id]?.usd_24h_change?.toFixed(2);
-      if (!p) continue;
-      const html = `$${p.toLocaleString()} <span class="${c>=0?'up':'dn'}">${c>=0?'+':''}${c}%</span>`;
-      const el1 = document.getElementById(`${sym}1`);
-      const el2 = document.getElementById(`${sym}2`);
-      if (el1) el1.innerHTML = html;
-      if (el2) el2.innerHTML = html;
-    }
-  } catch(e) {}
+      // Sidebar
+      const sideEl = document.getElementById(`price-${sym}`);
+      if (sideEl) {
+        sideEl.innerHTML = `${pStr} <span style="font-size:.58rem;color:${isUp?'var(--green)':'var(--red)'}">${cStr}</span>`;
+      }
+
+      // Ticker
+      const tickHtml = `${pStr} <span class="${cls}">${cStr}</span>`;
+      const t1 = document.getElementById(`${sym.toLowerCase()}1`);
+      const t2 = document.getElementById(`${sym.toLowerCase()}2`);
+      if (t1) t1.innerHTML = tickHtml;
+      if (t2) t2.innerHTML = tickHtml;
+    });
+  } catch(e) { console.log('Price fetch error:', e); }
 }
 loadPrices();
 setInterval(loadPrices, 60000);
