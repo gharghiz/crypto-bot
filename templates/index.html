@@ -472,7 +472,25 @@ footer a { color: var(--purple); text-decoration: none; }
         {% set is_high = 'etf' in t or 'sec' in t or 'halving' in t or 'ath' in t or 'whale' in t or 'blackrock' in t %}
         {% set sentiment = '🟢' if ('surge' in t or 'pump' in t or 'bull' in t or 'rise' in t or 'gain' in t or 'approved' in t) else ('🔴' if ('crash' in t or 'dump' in t or 'fall' in t or 'ban' in t or 'hack' in t or 'drop' in t) else '🟡') %}
 
-        {% set cat = 'breaking' if is_breaking else ('bitcoin' if 'bitcoin' in t or 'btc' in t else ('ethereum' if 'ethereum' in t or 'eth' in t else ('defi' if 'defi' in t else ('nft' if 'nft' in t else ('regulation' if 'sec' in t or 'regulation' in t or 'ban' in t else ('market' if 'market' in t or 'price' in t else 'altcoin')))))) %}
+        {% if is_breaking %}
+          {% set cat = 'breaking' %}
+        {% elif 'bitcoin' in t or ' btc ' in t or t.startswith('btc') or t.endswith('btc') %}
+          {% set cat = 'bitcoin' %}
+        {% elif 'ethereum' in t or ' eth ' in t or 'ether ' in t %}
+          {% set cat = 'ethereum' %}
+        {% elif 'defi' in t or 'decentralized finance' in t or ' yield' in t or 'liquidity pool' in t or 'uniswap' in t or 'aave' in t %}
+          {% set cat = 'defi' %}
+        {% elif 'nft' in t or 'non-fungible' in t or 'opensea' in t or 'nfts' in t %}
+          {% set cat = 'nft' %}
+        {% elif 'sec ' in t or 'regulation' in t or ' law ' in t or 'legal' in t or 'congress' in t or 'government' in t or 'legislation' in t %}
+          {% set cat = 'regulation' %}
+        {% elif 'solana' in t or 'cardano' in t or 'ripple' in t or 'dogecoin' in t or ' ada ' in t or ' xrp ' in t or ' bnb ' in t or ' doge ' in t or 'binance coin' in t %}
+          {% set cat = 'altcoin' %}
+        {% elif 'market' in t or 'price' in t or 'trading' in t or 'bull' in t or 'bear' in t or 'rally' in t or 'dump' in t or 'pump' in t %}
+          {% set cat = 'market' %}
+        {% else %}
+          {% set cat = 'market' %}
+        {% endif %}
 
         <article class="news-card {% if is_breaking %}breaking{% elif is_high %}high-impact{% endif %}"
                  data-id="{{ loop.index }}"
@@ -495,7 +513,7 @@ footer a { color: var(--purple); text-decoration: none; }
             {% if is_breaking %}<span class="breaking-tag">🚨 BREAKING</span>{% endif %}
             <span class="cat-tag">{{ cat | upper }}</span>
             <span class="source-tag">{{ item.source }}</span>
-            <span class="time-tag">{{ item.posted_at[11:16] }} UTC</span>
+            <span class="time-tag" data-utc="{{ item.posted_at }}">{{ item.posted_at[11:16] }} UTC</span>
             <button class="translate-card-btn"
                     onclick="event.stopPropagation(); translateCard({{ loop.index }}, this)"
                     data-original="{{ item.title }}"
@@ -693,6 +711,34 @@ async function toggleAllTranslations() {
       cardBtn.textContent = '🌐';
     }
   }
+}
+
+// ── Local Time ──
+document.querySelectorAll('[data-utc]').forEach(el => {
+  try {
+    const utc = el.dataset.utc;
+    if (!utc) return;
+    const date = new Date(utc.replace(' ', 'T') + (utc.includes('+') ? '' : 'Z'));
+    const now  = new Date();
+    const diffMs = now - date;
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffH   = Math.floor(diffMs / 3600000);
+    const diffD   = Math.floor(diffMs / 86400000);
+
+    let label;
+    if (diffMin < 1)       label = 'just now';
+    else if (diffMin < 60) label = `${diffMin}m ago`;
+    else if (diffH < 24)   label = `${diffH}h ago`;
+    else if (diffD < 7)    label = `${diffD}d ago`;
+    else {
+      label = date.toLocaleDateString(undefined, {month:'short', day:'numeric'});
+    }
+
+    const localTime = date.toLocaleTimeString(undefined, {hour:'2-digit', minute:'2-digit'});
+    el.textContent  = localTime + ' · ' + label;
+    el.title        = date.toLocaleString();
+  } catch(e) {}
+});
 }
 </script>
 </body>
