@@ -3,700 +3,639 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CryptoSit News — Live Crypto Intelligence</title>
+<title>CryptositNews — Live Crypto Intelligence</title>
+<meta name="description" content="Real-time crypto and trading news from 10+ sources. Breaking news, price alerts, and AI insights.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Clash+Display:wght@400;600;700&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:       #0a0a0f;
-    --surface:  #111118;
-    --card:     #16161f;
-    --border:   #1e1e2e;
-    --accent:   #00ff88;
-    --accent2:  #ff3e6c;
-    --accent3:  #7b61ff;
-    --text:     #e8e8f0;
-    --muted:    #555570;
-    --green:    #00ff88;
-    --red:      #ff3e6c;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Syne', sans-serif;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* Grid background */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(0,255,136,.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0,255,136,.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* ── Header ── */
-  header {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: rgba(10,10,15,.92);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border);
-    padding: 0 2rem;
-  }
-
-  .header-inner {
-    max-width: 1300px;
-    margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 64px;
-    gap: 1.5rem;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    text-decoration: none;
-  }
-
-  .logo-icon {
-    width: 32px; height: 32px;
-    background: var(--accent);
-    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    display: flex; align-items: center; justify-content: center;
-    font-size: .7rem; font-weight: 700; color: #000;
-    font-family: 'Space Mono', monospace;
-  }
-
-  .logo-text {
-    font-size: 1.1rem;
-    font-weight: 800;
-    color: var(--text);
-    letter-spacing: -.02em;
-  }
-
-  .logo-text span { color: var(--accent); }
-
-  .live-badge {
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-    font-family: 'Space Mono', monospace;
-    font-size: .65rem;
-    color: var(--accent);
-    border: 1px solid rgba(0,255,136,.3);
-    padding: .25rem .6rem;
-    border-radius: 2px;
-  }
-
-  .live-dot {
-    width: 6px; height: 6px;
-    background: var(--accent);
-    border-radius: 50%;
-    animation: pulse 1.5s ease infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: .4; transform: scale(.8); }
-  }
-
-  /* Search */
-  .search-wrap {
-    flex: 1;
-    max-width: 320px;
-    position: relative;
-  }
-
-  .search-wrap input {
-    width: 100%;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: 'Space Mono', monospace;
-    font-size: .75rem;
-    padding: .5rem 1rem .5rem 2.2rem;
-    border-radius: 3px;
-    outline: none;
-    transition: border-color .2s;
-  }
-
-  .search-wrap input:focus { border-color: var(--accent3); }
-  .search-wrap input::placeholder { color: var(--muted); }
-
-  .search-icon {
-    position: absolute;
-    left: .7rem; top: 50%;
-    transform: translateY(-50%);
-    color: var(--muted);
-    font-size: .8rem;
-  }
-
-  /* Translate toggle */
-  .translate-btn {
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--text);
-    font-family: 'Space Mono', monospace;
-    font-size: .7rem;
-    padding: .4rem .8rem;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all .2s;
-    white-space: nowrap;
-  }
-
-  .translate-btn:hover { border-color: var(--accent3); color: var(--accent3); }
-  .translate-btn.active { background: var(--accent3); border-color: var(--accent3); color: #fff; }
-
-  /* ── Ticker ── */
-  .ticker-wrap {
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    overflow: hidden;
-    height: 36px;
-    display: flex;
-    align-items: center;
-  }
-
-  .ticker-label {
-    background: var(--accent);
-    color: #000;
-    font-family: 'Space Mono', monospace;
-    font-size: .65rem;
-    font-weight: 700;
-    padding: 0 .8rem;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    letter-spacing: .05em;
-  }
-
-  .ticker-track {
-    display: flex;
-    gap: 3rem;
-    padding: 0 2rem;
-    animation: ticker 30s linear infinite;
-    white-space: nowrap;
-  }
-
-  @keyframes ticker {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-50%); }
-  }
-
-  .ticker-item {
-    font-family: 'Space Mono', monospace;
-    font-size: .72rem;
-    display: flex;
-    align-items: center;
-    gap: .4rem;
-    color: var(--muted);
-  }
-
-  .ticker-item .symbol { color: var(--text); font-weight: 700; }
-  .ticker-item .up   { color: var(--green); }
-  .ticker-item .down { color: var(--red); }
-
-  /* ── Main layout ── */
-  .container {
-    max-width: 1300px;
-    margin: 0 auto;
-    padding: 2rem;
-    position: relative;
-    z-index: 1;
-  }
-
-  .layout {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 2rem;
-    align-items: start;
-  }
-
-  /* ── Stats bar ── */
-  .stats-bar {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-  }
-
-  .stat-chip {
-    background: var(--card);
-    border: 1px solid var(--border);
-    padding: .5rem 1rem;
-    border-radius: 3px;
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-  }
-
-  .stat-chip .val {
-    font-family: 'Space Mono', monospace;
-    font-size: .9rem;
-    font-weight: 700;
-    color: var(--accent);
-  }
-
-  .stat-chip .lbl {
-    font-size: .7rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .05em;
-  }
-
-  /* ── News Feed ── */
-  .section-title {
-    font-size: .65rem;
-    font-family: 'Space Mono', monospace;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .12em;
-    margin-bottom: 1rem;
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-  }
-
-  .section-title::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
-
-  .news-grid { display: flex; flex-direction: column; gap: .6rem; }
-
-  .news-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 1rem 1.2rem;
-    cursor: pointer;
-    transition: all .2s;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .news-card::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 3px;
-    background: var(--border);
-    transition: background .2s;
-  }
-
-  .news-card:hover {
-    border-color: rgba(123,97,255,.4);
-    transform: translateX(3px);
-  }
-
-  .news-card:hover::before { background: var(--accent3); }
-  .news-card.breaking::before { background: var(--red); }
-  .news-card.high-impact::before { background: var(--accent); }
-
-  .card-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: .5rem;
-  }
-
-  .card-title {
-    font-size: .9rem;
-    font-weight: 600;
-    line-height: 1.4;
-    color: var(--text);
-    flex: 1;
-  }
-
-  .card-title.translated {
-    direction: rtl;
-    text-align: right;
-    font-size: .85rem;
-  }
-
-  .sentiment {
-    font-size: 1rem;
-    flex-shrink: 0;
-  }
-
-  .card-meta {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    flex-wrap: wrap;
-  }
-
-  .source-tag {
-    font-family: 'Space Mono', monospace;
-    font-size: .6rem;
-    color: var(--accent3);
-    border: 1px solid rgba(123,97,255,.3);
-    padding: .15rem .4rem;
-    border-radius: 2px;
-    text-transform: uppercase;
-  }
-
-  .time-tag {
-    font-family: 'Space Mono', monospace;
-    font-size: .6rem;
-    color: var(--muted);
-  }
-
-  .breaking-tag {
-    font-family: 'Space Mono', monospace;
-    font-size: .6rem;
-    background: var(--red);
-    color: #fff;
-    padding: .15rem .4rem;
-    border-radius: 2px;
-    font-weight: 700;
-    animation: blink 1s step-end infinite;
-  }
-
-  @keyframes blink { 50% { opacity: .5; } }
-
-  .translate-card-btn {
-    font-family: 'Space Mono', monospace;
-    font-size: .6rem;
-    color: var(--muted);
-    background: none;
-    border: 1px solid var(--border);
-    padding: .15rem .4rem;
-    border-radius: 2px;
-    cursor: pointer;
-    transition: all .15s;
-    margin-left: auto;
-  }
-
-  .translate-card-btn:hover { color: var(--accent3); border-color: var(--accent3); }
-
-  /* ── Sidebar ── */
-  .sidebar { position: sticky; top: 80px; }
-
-  .widget {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 1.2rem;
-    margin-bottom: 1rem;
-  }
-
-  .widget-title {
-    font-family: 'Space Mono', monospace;
-    font-size: .65rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    margin-bottom: 1rem;
-    padding-bottom: .6rem;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .source-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: .35rem 0;
-    border-bottom: 1px solid rgba(30,30,46,.5);
-  }
-
-  .source-row:last-child { border-bottom: none; }
-  .source-name { font-size: .78rem; color: var(--text); }
-  .source-count {
-    font-family: 'Space Mono', monospace;
-    font-size: .7rem;
-    color: var(--accent);
-  }
-
-  /* Telegram CTA */
-  .tg-cta {
-    background: linear-gradient(135deg, #1a1a2e, #16213e);
-    border: 1px solid rgba(0,136,204,.3);
-    border-radius: 4px;
-    padding: 1.2rem;
-    text-align: center;
-  }
-
-  .tg-cta .tg-icon { font-size: 2rem; margin-bottom: .5rem; }
-  .tg-cta p { font-size: .78rem; color: var(--muted); margin-bottom: 1rem; line-height: 1.5; }
-
-  .tg-btn {
-    display: inline-block;
-    background: #0088cc;
-    color: #fff;
-    text-decoration: none;
-    font-family: 'Space Mono', monospace;
-    font-size: .7rem;
-    padding: .5rem 1.2rem;
-    border-radius: 3px;
-    transition: background .2s;
-  }
-
-  .tg-btn:hover { background: #006da8; }
-
-  /* ── Pagination ── */
-  .pagination {
-    display: flex;
-    justify-content: center;
-    gap: .4rem;
-    margin-top: 2rem;
-  }
-
-  .pagination a, .pagination span {
-    font-family: 'Space Mono', monospace;
-    font-size: .7rem;
-    padding: .4rem .7rem;
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    color: var(--muted);
-    text-decoration: none;
-    transition: all .15s;
-  }
-
-  .pagination a:hover { border-color: var(--accent3); color: var(--accent3); }
-  .pagination span.current { background: var(--accent3); border-color: var(--accent3); color: #fff; }
-
-  /* ── Footer ── */
-  footer {
-    border-top: 1px solid var(--border);
-    margin-top: 3rem;
-    padding: 1.5rem 2rem;
-    text-align: center;
-    font-family: 'Space Mono', monospace;
-    font-size: .65rem;
-    color: var(--muted);
-  }
-
-  footer a { color: var(--accent3); text-decoration: none; }
-
-  /* ── Loading overlay ── */
-  .translating {
-    opacity: .5;
-    pointer-events: none;
-  }
-
-  @media (max-width: 900px) {
-    .layout { grid-template-columns: 1fr; }
-    .sidebar { position: static; }
-    .stats-bar { gap: .5rem; }
-    .header-inner { flex-wrap: wrap; height: auto; padding: .5rem 0; }
-    .search-wrap { max-width: 100%; flex: 1 1 100%; order: 3; }
-  }
+:root {
+  --bg:       #080810;
+  --surface:  #0e0e1a;
+  --card:     #12121e;
+  --card-h:   #161624;
+  --border:   #1a1a2e;
+  --border-h: #2a2a4e;
+  --accent:   #00e5ff;
+  --green:    #00ff88;
+  --red:      #ff3366;
+  --purple:   #7c4dff;
+  --gold:     #ffd700;
+  --text:     #eeeef5;
+  --muted:    #4a4a6a;
+  --mono:     'DM Mono', monospace;
+  --display:  'Cabinet Grotesk', sans-serif;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--display);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Background noise */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0; opacity: .4;
+}
+
+/* ── HEADER ── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(8,8,16,.9);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-inner {
+  max-width: 1400px; margin: 0 auto;
+  display: flex; align-items: center;
+  gap: 1.5rem; height: 60px; padding: 0 1.5rem;
+}
+
+.logo {
+  display: flex; align-items: center; gap: .5rem;
+  text-decoration: none; flex-shrink: 0;
+}
+
+.logo-mark {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: .75rem; font-weight: 500; color: #000;
+}
+
+.logo-name {
+  font-size: 1rem; font-weight: 800;
+  letter-spacing: -.02em; color: var(--text);
+}
+.logo-name em { color: var(--accent); font-style: normal; }
+
+.live-pill {
+  display: flex; align-items: center; gap: .35rem;
+  font-family: var(--mono); font-size: .6rem;
+  color: var(--green); border: 1px solid rgba(0,255,136,.2);
+  padding: .2rem .5rem; border-radius: 20px;
+}
+.live-dot {
+  width: 5px; height: 5px; background: var(--green);
+  border-radius: 50%; animation: blink 1.4s ease infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.search-wrap {
+  flex: 1; position: relative;
+}
+.search-wrap input {
+  width: 100%; background: var(--surface);
+  border: 1px solid var(--border); color: var(--text);
+  font-family: var(--mono); font-size: .72rem;
+  padding: .45rem 1rem .45rem 2rem;
+  border-radius: 6px; outline: none;
+  transition: border-color .2s;
+}
+.search-wrap input:focus { border-color: var(--purple); }
+.search-wrap input::placeholder { color: var(--muted); }
+.search-icon { position: absolute; left: .65rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: .8rem; }
+
+.translate-btn {
+  display: flex; align-items: center; gap: .3rem;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: .65rem;
+  padding: .35rem .7rem; border-radius: 6px; cursor: pointer;
+  transition: all .2s; white-space: nowrap; flex-shrink: 0;
+}
+.translate-btn:hover, .translate-btn.active { border-color: var(--purple); color: var(--purple); }
+
+.tg-header-btn {
+  display: flex; align-items: center; gap: .3rem;
+  background: linear-gradient(135deg, #0088cc, #006da8);
+  color: #fff; text-decoration: none;
+  font-family: var(--mono); font-size: .65rem;
+  padding: .35rem .8rem; border-radius: 6px;
+  transition: opacity .2s; white-space: nowrap; flex-shrink: 0;
+}
+.tg-header-btn:hover { opacity: .85; }
+
+/* ── TICKER ── */
+.ticker-wrap {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  height: 34px; overflow: hidden;
+  display: flex; align-items: center;
+}
+.ticker-label {
+  background: var(--accent); color: #000;
+  font-family: var(--mono); font-size: .6rem; font-weight: 500;
+  padding: 0 .8rem; height: 100%;
+  display: flex; align-items: center; flex-shrink: 0;
+  letter-spacing: .08em;
+}
+.ticker-inner { overflow: hidden; flex: 1; }
+.ticker-track {
+  display: flex; gap: 2.5rem; padding: 0 2rem;
+  animation: ticker 35s linear infinite; white-space: nowrap;
+}
+@keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.t-item {
+  font-family: var(--mono); font-size: .7rem;
+  display: flex; align-items: center; gap: .35rem; color: var(--muted);
+}
+.t-item .sym { color: var(--text); font-weight: 500; }
+.up { color: var(--green); } .dn { color: var(--red); }
+
+/* ── CATEGORIES ── */
+.categories {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  display: flex; align-items: center; gap: .4rem;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.categories::-webkit-scrollbar { display: none; }
+
+.cat-btn {
+  display: flex; align-items: center; gap: .3rem;
+  font-family: var(--mono); font-size: .65rem;
+  color: var(--muted); background: none; border: none;
+  padding: .7rem .6rem; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .2s; white-space: nowrap;
+}
+.cat-btn:hover { color: var(--text); }
+.cat-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ── MAIN ── */
+.container {
+  max-width: 1400px; margin: 0 auto;
+  padding: 1.5rem; position: relative; z-index: 1;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem; align-items: start;
+}
+
+/* ── STATS BAR ── */
+.stats-bar {
+  display: flex; gap: .6rem; margin-bottom: 1.2rem; flex-wrap: wrap;
+}
+.stat-chip {
+  background: var(--card); border: 1px solid var(--border);
+  padding: .4rem .8rem; border-radius: 6px;
+  display: flex; align-items: center; gap: .4rem;
+  font-family: var(--mono); font-size: .65rem;
+}
+.stat-chip .v { color: var(--accent); font-weight: 500; }
+.stat-chip .l { color: var(--muted); }
+
+/* ── SECTION TITLE ── */
+.section-title {
+  font-family: var(--mono); font-size: .6rem;
+  color: var(--muted); text-transform: uppercase;
+  letter-spacing: .12em; margin-bottom: .8rem;
+  display: flex; align-items: center; gap: .5rem;
+}
+.section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* ── NEWS CARDS ── */
+.news-grid { display: flex; flex-direction: column; gap: .5rem; }
+
+.news-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: .9rem 1rem;
+  cursor: pointer; transition: all .2s;
+  position: relative; overflow: hidden;
+  animation: fadeUp .3s ease both;
+}
+.news-card::before {
+  content: ''; position: absolute;
+  left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--border); transition: background .2s;
+  border-radius: 3px 0 0 3px;
+}
+.news-card:hover {
+  background: var(--card-h);
+  border-color: var(--border-h);
+  transform: translateX(3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
+.news-card:hover::before { background: var(--purple); }
+.news-card.breaking::before { background: var(--red); }
+.news-card.breaking { border-color: rgba(255,51,102,.15); }
+.news-card.high-impact::before { background: var(--green); }
+.news-card.high-impact { border-color: rgba(0,255,136,.1); }
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.card-top {
+  display: flex; align-items: flex-start;
+  justify-content: space-between; gap: .8rem;
+  margin-bottom: .5rem;
+}
+
+.card-title {
+  font-size: .88rem; font-weight: 700;
+  line-height: 1.45; color: var(--text); flex: 1;
+  transition: color .2s;
+}
+.news-card:hover .card-title { color: #fff; }
+.card-title.translated { direction: rtl; text-align: right; font-size: .82rem; }
+
+.sentiment { font-size: .95rem; flex-shrink: 0; margin-top: 1px; }
+
+/* AI preview */
+.ai-preview {
+  font-family: var(--mono); font-size: .62rem;
+  color: var(--muted); background: rgba(124,77,255,.06);
+  border: 1px solid rgba(124,77,255,.12);
+  border-radius: 4px; padding: .3rem .5rem;
+  margin-bottom: .5rem; line-height: 1.4;
+  display: none;
+}
+.ai-preview.visible { display: block; }
+.ai-preview span { color: var(--purple); }
+
+.card-meta {
+  display: flex; align-items: center;
+  gap: .4rem; flex-wrap: wrap;
+}
+
+.source-tag {
+  font-family: var(--mono); font-size: .58rem;
+  color: var(--purple); border: 1px solid rgba(124,77,255,.25);
+  padding: .12rem .35rem; border-radius: 3px; text-transform: uppercase;
+}
+
+.time-tag {
+  font-family: var(--mono); font-size: .58rem; color: var(--muted);
+}
+
+.breaking-tag {
+  font-family: var(--mono); font-size: .58rem;
+  background: var(--red); color: #fff;
+  padding: .12rem .35rem; border-radius: 3px;
+  font-weight: 500; animation: blink 1s step-end infinite;
+}
+
+.cat-tag {
+  font-family: var(--mono); font-size: .58rem;
+  color: var(--accent); border: 1px solid rgba(0,229,255,.2);
+  padding: .12rem .35rem; border-radius: 3px;
+}
+
+.translate-card-btn {
+  font-family: var(--mono); font-size: .58rem;
+  color: var(--muted); background: none;
+  border: 1px solid var(--border);
+  padding: .12rem .35rem; border-radius: 3px;
+  cursor: pointer; transition: all .15s; margin-left: auto;
+}
+.translate-card-btn:hover { color: var(--purple); border-color: var(--purple); }
+
+/* ── SIDEBAR ── */
+.sidebar { position: sticky; top: 76px; }
+
+.widget {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1rem; margin-bottom: 1rem;
+}
+
+.widget-title {
+  font-family: var(--mono); font-size: .6rem;
+  color: var(--muted); text-transform: uppercase;
+  letter-spacing: .1em; margin-bottom: .8rem;
+  padding-bottom: .5rem; border-bottom: 1px solid var(--border);
+}
+
+/* Telegram CTA */
+.tg-widget {
+  background: linear-gradient(135deg, rgba(0,136,204,.15), rgba(0,109,168,.1));
+  border: 1px solid rgba(0,136,204,.25);
+  border-radius: 8px; padding: 1.2rem;
+  text-align: center; margin-bottom: 1rem;
+}
+.tg-widget .icon { font-size: 2rem; margin-bottom: .5rem; }
+.tg-widget p { font-size: .75rem; color: var(--muted); margin-bottom: .8rem; line-height: 1.5; }
+.tg-btn {
+  display: inline-block; background: #0088cc; color: #fff;
+  text-decoration: none; font-family: var(--mono);
+  font-size: .68rem; padding: .45rem 1.2rem;
+  border-radius: 6px; transition: background .2s;
+}
+.tg-btn:hover { background: #006da8; }
+
+/* Sources */
+.source-row {
+  display: flex; justify-content: space-between;
+  align-items: center; padding: .3rem 0;
+  border-bottom: 1px solid rgba(26,26,46,.5);
+}
+.source-row:last-child { border: none; }
+.source-name { font-size: .75rem; color: var(--text); }
+.source-bar-wrap { flex: 1; margin: 0 .6rem; height: 2px; background: var(--border); border-radius: 1px; }
+.source-bar { height: 100%; background: var(--purple); border-radius: 1px; }
+.source-count { font-family: var(--mono); font-size: .65rem; color: var(--accent); }
+
+/* Price widget */
+.price-row {
+  display: flex; justify-content: space-between;
+  align-items: center; padding: .4rem 0;
+  border-bottom: 1px solid rgba(26,26,46,.5);
+}
+.price-row:last-child { border: none; }
+.coin-name { font-family: var(--mono); font-size: .72rem; color: var(--text); font-weight: 500; }
+.coin-price { font-family: var(--mono); font-size: .72rem; }
+
+/* ── PAGINATION ── */
+.pagination {
+  display: flex; justify-content: center;
+  gap: .3rem; margin-top: 1.5rem;
+}
+.pagination a, .pagination span {
+  font-family: var(--mono); font-size: .65rem;
+  padding: .35rem .6rem; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--muted);
+  text-decoration: none; transition: all .15s;
+}
+.pagination a:hover { border-color: var(--purple); color: var(--purple); }
+.pagination span.cur { background: var(--purple); border-color: var(--purple); color: #fff; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border); margin-top: 3rem;
+  padding: 1.2rem 1.5rem; text-align: center;
+  font-family: var(--mono); font-size: .6rem; color: var(--muted);
+}
+footer a { color: var(--purple); text-decoration: none; }
+
+/* ── MOBILE ── */
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: static; }
+  .header-inner { flex-wrap: wrap; height: auto; padding: .6rem 1rem; gap: .6rem; }
+  .search-wrap { order: 3; flex: 1 1 100%; }
+  .tg-header-btn { display: none; }
+  .categories { padding: 0 1rem; }
+  .container { padding: 1rem; }
+}
+
+/* ── SKELETON loading ── */
+.skeleton {
+  background: linear-gradient(90deg, var(--card) 25%, var(--card-h) 50%, var(--card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
 </style>
 </head>
 <body>
 
-<!-- Header -->
+<!-- HEADER -->
 <header>
   <div class="header-inner">
     <a class="logo" href="/">
-      <div class="logo-icon">₿</div>
-      <span class="logo-text">Crypto<span>Sit</span> News</span>
+      <div class="logo-mark">₿</div>
+      <span class="logo-name">Cryptosit<em>News</em></span>
     </a>
-
-    <div class="live-badge">
-      <div class="live-dot"></div>
-      LIVE FEED
-    </div>
+    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
 
     <form class="search-wrap" method="get" action="/">
       <span class="search-icon">⌕</span>
-      <input type="text" name="q" placeholder="Search news..." value="{{ search }}">
+      <input type="text" name="q" placeholder="Search news, coins, topics..." value="{{ search }}">
     </form>
 
-    <button class="translate-btn" id="translateAll" onclick="toggleAllTranslations()">
-      🌐 عربي
-    </button>
+    <button class="translate-btn" id="translateAll" onclick="toggleAllTranslations()">🌐 عربي</button>
+    <a class="tg-header-btn" href="https://t.me/CryptositNews" target="_blank">✈️ Telegram</a>
   </div>
 </header>
 
-<!-- Ticker -->
+<!-- TICKER -->
 <div class="ticker-wrap">
-  <div class="ticker-label">MARKET</div>
-  <div style="overflow:hidden; flex:1">
+  <div class="ticker-label">PRICES</div>
+  <div class="ticker-inner">
     <div class="ticker-track" id="tickerTrack">
-      <span class="ticker-item"><span class="symbol">BTC</span> <span class="up" id="btc-price">loading...</span></span>
-      <span class="ticker-item"><span class="symbol">ETH</span> <span class="up" id="eth-price">loading...</span></span>
-      <span class="ticker-item"><span class="symbol">SOL</span> <span class="up" id="sol-price">loading...</span></span>
-      <span class="ticker-item"><span class="symbol">BNB</span> <span class="up" id="bnb-price">loading...</span></span>
-      <span class="ticker-item"><span class="symbol">XRP</span> <span class="up" id="xrp-price">loading...</span></span>
-      <!-- duplicate for seamless loop -->
-      <span class="ticker-item"><span class="symbol">BTC</span> <span class="up" id="btc-price2">loading...</span></span>
-      <span class="ticker-item"><span class="symbol">ETH</span> <span class="up" id="eth-price2">loading...</span></span>
-      <span class="ticker-item"><span class="symbol">SOL</span> <span class="up" id="sol-price2">loading...</span></span>
-      <span class="ticker-item"><span class="symbol">BNB</span> <span class="up" id="bnb-price2">loading...</span></span>
-      <span class="ticker-item"><span class="symbol">XRP</span> <span class="up" id="xrp-price2">loading...</span></span>
+      {% for sym in ['btc','eth','sol','bnb','xrp'] %}
+      <span class="t-item"><span class="sym">{{ sym|upper }}</span> <span class="up" id="{{ sym }}1">—</span></span>
+      {% endfor %}
+      {% for sym in ['btc','eth','sol','bnb','xrp'] %}
+      <span class="t-item"><span class="sym">{{ sym|upper }}</span> <span class="up" id="{{ sym }}2">—</span></span>
+      {% endfor %}
     </div>
   </div>
 </div>
 
-<!-- Main -->
+<!-- CATEGORIES -->
+<div class="categories">
+  <button class="cat-btn {% if not request.args.get('cat') %}active{% endif %}" onclick="filterCat('')">🌐 All</button>
+  <button class="cat-btn {% if request.args.get('cat')=='breaking' %}active{% endif %}" onclick="filterCat('breaking')">🚨 Breaking</button>
+  <button class="cat-btn {% if request.args.get('cat')=='bitcoin' %}active{% endif %}" onclick="filterCat('bitcoin')">₿ Bitcoin</button>
+  <button class="cat-btn {% if request.args.get('cat')=='ethereum' %}active{% endif %}" onclick="filterCat('ethereum')">Ξ Ethereum</button>
+  <button class="cat-btn {% if request.args.get('cat')=='defi' %}active{% endif %}" onclick="filterCat('defi')">🏦 DeFi</button>
+  <button class="cat-btn {% if request.args.get('cat')=='nft' %}active{% endif %}" onclick="filterCat('nft')">🎨 NFT</button>
+  <button class="cat-btn {% if request.args.get('cat')=='regulation' %}active{% endif %}" onclick="filterCat('regulation')">⚖️ Regulation</button>
+  <button class="cat-btn {% if request.args.get('cat')=='market' %}active{% endif %}" onclick="filterCat('market')">📊 Market</button>
+  <button class="cat-btn {% if request.args.get('cat')=='altcoin' %}active{% endif %}" onclick="filterCat('altcoin')">🪙 Altcoins</button>
+</div>
+
+<!-- MAIN -->
 <div class="container">
   <div class="stats-bar">
-    <div class="stat-chip">
-      <span class="val">{{ stats.total }}</span>
-      <span class="lbl">Total News</span>
-    </div>
-    <div class="stat-chip">
-      <span class="val">{{ stats.today }}</span>
-      <span class="lbl">Today</span>
-    </div>
-    <div class="stat-chip">
-      <span class="val">{{ stats.sources|length }}</span>
-      <span class="lbl">Sources</span>
-    </div>
-    {% if search %}
-    <div class="stat-chip">
-      <span class="val">{{ total }}</span>
-      <span class="lbl">Results for "{{ search }}"</span>
-    </div>
-    {% endif %}
+    <div class="stat-chip"><span class="v">{{ stats.total }}</span><span class="l">Total</span></div>
+    <div class="stat-chip"><span class="v">{{ stats.today }}</span><span class="l">Today</span></div>
+    <div class="stat-chip"><span class="v">{{ stats.sources|length }}</span><span class="l">Sources</span></div>
+    {% if search %}<div class="stat-chip"><span class="v">{{ total }}</span><span class="l">for "{{ search }}"</span></div>{% endif %}
   </div>
 
   <div class="layout">
-    <!-- News Feed -->
+    <!-- FEED -->
     <main>
       <div class="section-title">Latest Intelligence</div>
 
       {% if news %}
-      <div class="news-grid">
+      <div class="news-grid" id="newsFeed">
         {% for item in news %}
         {% set t = item.title | lower %}
-        {% set is_breaking = 'breaking' in t or 'urgent' in t or 'hack' in t or 'crash' in t %}
-        {% set is_high = 'etf' in t or 'sec' in t or 'halving' in t or 'ath' in t or 'whale' in t %}
-        {% set sentiment = '🟢' if ('surge' in t or 'pump' in t or 'bull' in t or 'rise' in t or 'gain' in t) else ('🔴' if ('crash' in t or 'dump' in t or 'fall' in t or 'ban' in t or 'hack' in t) else '🟡') %}
+        {% set is_breaking = 'breaking' in t or 'urgent' in t or 'hack' in t or 'crash' in t or 'ban' in t %}
+        {% set is_high = 'etf' in t or 'sec' in t or 'halving' in t or 'ath' in t or 'whale' in t or 'blackrock' in t %}
+        {% set sentiment = '🟢' if ('surge' in t or 'pump' in t or 'bull' in t or 'rise' in t or 'gain' in t or 'approved' in t) else ('🔴' if ('crash' in t or 'dump' in t or 'fall' in t or 'ban' in t or 'hack' in t or 'drop' in t) else '🟡') %}
+
+        {% set cat = 'breaking' if is_breaking else ('bitcoin' if 'bitcoin' in t or 'btc' in t else ('ethereum' if 'ethereum' in t or 'eth' in t else ('defi' if 'defi' in t else ('nft' if 'nft' in t else ('regulation' if 'sec' in t or 'regulation' in t or 'ban' in t else ('market' if 'market' in t or 'price' in t else 'altcoin')))))) %}
 
         <article class="news-card {% if is_breaking %}breaking{% elif is_high %}high-impact{% endif %}"
-                 data-id="{{ loop.index }}">
+                 data-id="{{ loop.index }}"
+                 data-cat="{{ cat }}"
+                 style="animation-delay: {{ loop.index0 * 0.04 }}s; cursor:pointer"
+                 onclick="window.location='/news/{{ item.id }}'">
+
           <div class="card-top">
             <div class="card-title" id="title-{{ loop.index }}">{{ item.title }}</div>
             <span class="sentiment">{{ sentiment }}</span>
           </div>
+
+          {% if item.summary %}
+          <div class="ai-preview visible">
+            <span>🧠</span> {{ item.summary }}
+          </div>
+          {% endif %}
+
           <div class="card-meta">
-            {% if is_breaking %}
-            <span class="breaking-tag">🚨 BREAKING</span>
-            {% endif %}
+            {% if is_breaking %}<span class="breaking-tag">🚨 BREAKING</span>{% endif %}
+            <span class="cat-tag">{{ cat | upper }}</span>
             <span class="source-tag">{{ item.source }}</span>
-            <span class="time-tag">{{ item.posted_at[:16].replace('T',' ') }} UTC</span>
+            <span class="time-tag">{{ item.posted_at[11:16] }} UTC</span>
             <button class="translate-card-btn"
-                    onclick="translateCard({{ loop.index }}, this)"
+                    onclick="event.stopPropagation(); translateCard({{ loop.index }}, this)"
                     data-original="{{ item.title }}"
-                    data-translated="">
-              🌐 AR
-            </button>
+                    data-translated="">🌐</button>
           </div>
         </article>
         {% endfor %}
       </div>
 
-      <!-- Pagination -->
       {% if pages > 1 %}
       <div class="pagination">
-        {% if page > 1 %}
-        <a href="?page={{ page-1 }}&q={{ search }}">← Prev</a>
-        {% endif %}
+        {% if page > 1 %}<a href="?page={{ page-1 }}&q={{ search }}">← Prev</a>{% endif %}
         {% for p in range(1, pages+1) %}
-          {% if p == page %}
-          <span class="current">{{ p }}</span>
-          {% elif p <= 3 or p >= pages-2 or (p >= page-2 and p <= page+2) %}
-          <a href="?page={{ p }}&q={{ search }}">{{ p }}</a>
-          {% elif p == 4 or p == pages-3 %}
-          <span>…</span>
-          {% endif %}
+          {% if p == page %}<span class="cur">{{ p }}</span>
+          {% elif p <= 3 or p >= pages-2 or (p >= page-2 and p <= page+2) %}<a href="?page={{ p }}&q={{ search }}">{{ p }}</a>
+          {% elif p == 4 or p == pages-3 %}<span>…</span>{% endif %}
         {% endfor %}
-        {% if page < pages %}
-        <a href="?page={{ page+1 }}&q={{ search }}">Next →</a>
-        {% endif %}
+        {% if page < pages %}<a href="?page={{ page+1 }}&q={{ search }}">Next →</a>{% endif %}
       </div>
       {% endif %}
 
       {% else %}
-      <div style="text-align:center; padding:3rem; color:var(--muted); font-family:'Space Mono',monospace; font-size:.8rem;">
+      <div style="text-align:center;padding:3rem;color:var(--muted);font-family:var(--mono);font-size:.8rem">
         No news found{% if search %} for "{{ search }}"{% endif %}.<br><br>
-        <a href="/" style="color:var(--accent3);">← Clear search</a>
+        <a href="/" style="color:var(--purple)">← Clear</a>
       </div>
       {% endif %}
     </main>
 
-    <!-- Sidebar -->
+    <!-- SIDEBAR -->
     <aside class="sidebar">
+
       <!-- Telegram CTA -->
-      <div class="tg-cta">
-        <div class="tg-icon">✈️</div>
-        <p>Get breaking crypto news instantly on Telegram</p>
-        <a class="tg-btn" href="https://t.me/CryptositNews" target="_blank">
-          Join Channel →
-        </a>
+      <div class="tg-widget">
+        <div class="icon">✈️</div>
+        <p>Get breaking crypto news <strong>instantly</strong> on Telegram</p>
+        <a class="tg-btn" href="https://t.me/CryptositNews" target="_blank">🚀 Join Channel</a>
+      </div>
+
+      <!-- Live Prices -->
+      <div class="widget">
+        <div class="widget-title">💰 Live Prices</div>
+        <div id="priceWidget">
+          {% for sym in ['BTC','ETH','SOL','BNB','XRP'] %}
+          <div class="price-row">
+            <span class="coin-name">{{ sym }}</span>
+            <span class="coin-price up" id="price-{{ sym }}">loading...</span>
+          </div>
+          {% endfor %}
+        </div>
       </div>
 
       <!-- Sources -->
+      {% if stats.sources %}
       <div class="widget">
-        <div class="widget-title">📡 News Sources</div>
+        <div class="widget-title">📡 Sources</div>
+        {% set max_count = stats.sources[0].count %}
         {% for s in stats.sources %}
         <div class="source-row">
           <span class="source-name">{{ s.name }}</span>
+          <div class="source-bar-wrap">
+            <div class="source-bar" style="width:{{ (s.count / max_count * 100)|int }}%"></div>
+          </div>
           <span class="source-count">{{ s.count }}</span>
         </div>
         {% endfor %}
       </div>
+      {% endif %}
+
     </aside>
   </div>
 </div>
 
 <footer>
-  <p>© 2026 CryptositNews — Powered by live RSS feeds &nbsp;|&nbsp;
-  <a href="https://t.me/CryptositNews" target="_blank">Telegram Channel</a></p>
+  <p>© 2025 CryptositNews — Powered by live RSS feeds &nbsp;|&nbsp;
+  <a href="https://t.me/CryptositNews" target="_blank">Telegram</a> &nbsp;|&nbsp;
+  <a href="/sitemap.xml">Sitemap</a></p>
 </footer>
 
 <script>
-// ── Live Prices ──
+// ── Prices ──
+const COIN_IDS = {
+  BTC:'bitcoin', ETH:'ethereum', SOL:'solana', BNB:'binancecoin', XRP:'ripple'
+};
+const TICKER_IDS = {
+  btc:'bitcoin', eth:'ethereum', sol:'solana', bnb:'binancecoin', xrp:'ripple'
+};
+
 async function loadPrices() {
   try {
-    const r = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,binancecoin,ripple&vs_currencies=usd&include_24hr_change=true");
+    const ids = Object.values(COIN_IDS).join(',');
+    const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`);
     const d = await r.json();
-    const fmt = (coin, id1, id2) => {
-      const p = d[coin];
-      if (!p) return;
-      const c = p.usd_24h_change?.toFixed(2);
-      const cl = c >= 0 ? 'up' : 'down';
-      const txt = `$${p.usd.toLocaleString()} <span class="${cl}">${c >= 0 ? '+' : ''}${c}%</span>`;
-      document.getElementById(id1).innerHTML = txt;
-      document.getElementById(id2).innerHTML = txt;
-    };
-    fmt('bitcoin',     'btc-price', 'btc-price2');
-    fmt('ethereum',    'eth-price', 'eth-price2');
-    fmt('solana',      'sol-price', 'sol-price2');
-    fmt('binancecoin', 'bnb-price', 'bnb-price2');
-    fmt('ripple',      'xrp-price', 'xrp-price2');
+
+    // Sidebar prices
+    for (const [sym, id] of Object.entries(COIN_IDS)) {
+      const el = document.getElementById(`price-${sym}`);
+      if (!el || !d[id]) continue;
+      const p = d[id].usd, c = d[id].usd_24h_change?.toFixed(2);
+      el.innerHTML = `$${p.toLocaleString()} <span style="font-size:.6rem;color:${c>=0?'var(--green)':'var(--red)'}">${c>=0?'+':''}${c}%</span>`;
+      el.className = `coin-price ${c>=0?'up':'dn'}`;
+    }
+
+    // Ticker
+    for (const [sym, id] of Object.entries(TICKER_IDS)) {
+      const p = d[id]?.usd, c = d[id]?.usd_24h_change?.toFixed(2);
+      if (!p) continue;
+      const html = `$${p.toLocaleString()} <span class="${c>=0?'up':'dn'}">${c>=0?'+':''}${c}%</span>`;
+      const el1 = document.getElementById(`${sym}1`);
+      const el2 = document.getElementById(`${sym}2`);
+      if (el1) el1.innerHTML = html;
+      if (el2) el2.innerHTML = html;
+    }
   } catch(e) {}
 }
-
 loadPrices();
 setInterval(loadPrices, 60000);
 
-// ── Translation (MyMemory free API) ──
+// ── Categories ──
+function filterCat(cat) {
+  const url = new URL(window.location);
+  if (cat) url.searchParams.set('cat', cat);
+  else url.searchParams.delete('cat');
+  url.searchParams.delete('page');
+  window.location = url;
+}
+
+// Client-side category filter (instant)
+const catParam = new URLSearchParams(window.location.search).get('cat');
+if (catParam) {
+  document.querySelectorAll('.news-card').forEach(card => {
+    if (card.dataset.cat !== catParam && catParam !== 'breaking') {
+      card.style.display = 'none';
+    } else if (catParam === 'breaking' && !card.classList.contains('breaking')) {
+      card.style.display = 'none';
+    }
+  });
+}
+
+// ── Translation ──
 let allTranslated = false;
 
 async function translateText(text) {
@@ -707,14 +646,13 @@ async function translateText(text) {
 
 async function translateCard(idx, btn) {
   const titleEl = document.getElementById(`title-${idx}`);
-  const original   = btn.dataset.original;
-  let translated   = btn.dataset.translated;
+  const original = btn.dataset.original;
+  let translated = btn.dataset.translated;
 
   if (titleEl.classList.contains('translated')) {
-    // رجع للإنجليزية
     titleEl.textContent = original;
     titleEl.classList.remove('translated');
-    btn.textContent = '🌐 AR';
+    btn.textContent = '🌐';
     return;
   }
 
@@ -728,7 +666,7 @@ async function translateCard(idx, btn) {
 
   titleEl.textContent = translated;
   titleEl.classList.add('translated');
-  btn.textContent = '🌐 EN';
+  btn.textContent = '↩';
 }
 
 async function toggleAllTranslations() {
@@ -737,10 +675,9 @@ async function toggleAllTranslations() {
   btn.classList.toggle('active', allTranslated);
   btn.textContent = allTranslated ? '🌐 English' : '🌐 عربي';
 
-  const cards = document.querySelectorAll('.translate-card-btn');
-  for (const cardBtn of cards) {
-    const idx      = cardBtn.closest('.news-card').dataset.id;
-    const titleEl  = document.getElementById(`title-${idx}`);
+  for (const cardBtn of document.querySelectorAll('.translate-card-btn')) {
+    const idx = cardBtn.closest('.news-card').dataset.id;
+    const titleEl = document.getElementById(`title-${idx}`);
     const original = cardBtn.dataset.original;
 
     if (allTranslated && !titleEl.classList.contains('translated')) {
@@ -749,11 +686,11 @@ async function toggleAllTranslations() {
       }
       titleEl.textContent = cardBtn.dataset.translated;
       titleEl.classList.add('translated');
-      cardBtn.textContent = '🌐 EN';
+      cardBtn.textContent = '↩';
     } else if (!allTranslated && titleEl.classList.contains('translated')) {
       titleEl.textContent = original;
       titleEl.classList.remove('translated');
-      cardBtn.textContent = '🌐 AR';
+      cardBtn.textContent = '🌐';
     }
   }
 }
