@@ -9,12 +9,12 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 # Timing
-INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "1"))
+INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "5"))
 
 # OpenAI
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
-# RSS Sources
+# RSS Sources - 15 مصدر
 RSS_FEEDS = [
     {"name": "CoinTelegraph",    "url": "https://cointelegraph.com/rss"},
     {"name": "CoinDesk",         "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"},
@@ -26,20 +26,31 @@ RSS_FEEDS = [
     {"name": "BeInCrypto",       "url": "https://beincrypto.com/feed/"},
     {"name": "The Block",        "url": "https://www.theblock.co/rss.xml"},
     {"name": "Blockworks",       "url": "https://blockworks.co/feed"},
+    {"name": "CoinGape",         "url": "https://coingape.com/feed/"},
+    {"name": "AMBCrypto",        "url": "https://ambcrypto.com/feed/"},
+    {"name": "U.Today",          "url": "https://u.today/rss"},
+    {"name": "Bitcoinist",       "url": "https://bitcoinist.com/feed/"},
+    {"name": "CryptoSlate News", "url": "https://cryptoslate.com/news/feed/"},
 ]
 
-# Keywords
+# Keywords — موسعة باش ينشر أكثر
 IMPORTANT_KEYWORDS = [
+    # عملات
     "bitcoin", "btc", "ethereum", "eth", "bnb", "solana", "sol",
     "xrp", "ripple", "cardano", "ada", "dogecoin", "doge",
+    "crypto", "cryptocurrency", "blockchain", "web3", "token",
+    # أحداث
     "etf", "sec", "halving", "hack", "hacked", "exploit",
     "ban", "banned", "regulation", "legal", "lawsuit",
     "crash", "dump", "pump", "surge", "rally", "bull", "bear",
-    "all-time high", "ath", "record", "billion", "trillion",
+    "all-time high", "ath", "record", "billion", "million",
+    # مؤسسات
     "binance", "coinbase", "blackrock", "fed", "federal reserve",
     "tether", "usdt", "stablecoin", "defi", "nft",
+    # تداول
     "trading", "price", "market", "exchange", "liquidation",
-    "futures", "options", "whale", "institutional",
+    "futures", "options", "whale", "institutional", "wallet",
+    "mining", "miner", "network", "protocol", "layer",
 ]
 
 BREAKING_KEYWORDS = [
@@ -89,10 +100,10 @@ PRICE_ALERT_COINS = {
 PRICE_ALERT_THRESHOLD = float(os.environ.get("PRICE_ALERT_THRESHOLD", "3.0"))
 PRICE_CHECK_INTERVAL  = int(os.environ.get("PRICE_CHECK_INTERVAL", "5"))
 
-# Duplicate Detection
-SIMILARITY_THRESHOLD = 0.65
+# Duplicate Detection — خففناها باش ينشر أكثر
+SIMILARITY_THRESHOLD = 0.85
 
-# Posting
-MAX_POSTS_PER_CYCLE  = 10
-DELAY_BETWEEN_POSTS  = 1
+# Posting — زدنا عدد المنشورات
+MAX_POSTS_PER_CYCLE  = 8
+DELAY_BETWEEN_POSTS  = 2
 MAX_RETRIES_TELEGRAM = 3
