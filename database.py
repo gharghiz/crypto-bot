@@ -1,9 +1,9 @@
 """
-database.py - PostgreSQL + SQLite fallback
-مع columns للـ AI
+database.py - PostgreSQL + SQLite + Cache
 """
 
 import os
+import time
 import logging
 import sqlite3
 from datetime import datetime, timezone
@@ -16,7 +16,6 @@ def now_utc():
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 DB_PATH      = os.environ.get("DB_PATH", "cryptobot.db")
-
 USE_POSTGRES = bool(DATABASE_URL and "postgres" in DATABASE_URL)
 
 if USE_POSTGRES:
@@ -29,6 +28,27 @@ if USE_POSTGRES:
         USE_POSTGRES = False
 else:
     logger.info("✅ SQLite mode")
+
+# ============================================================
+# Simple in-memory cache
+# ============================================================
+
+_cache = {}  # { key: (data, timestamp) }
+CACHE_TTL = 60  # ثانية
+
+def cache_get(key):
+    if key in _cache:
+        data, ts = _cache[key]
+        if time.time() - ts < CACHE_TTL:
+            return data
+        del _cache[key]
+    return None
+
+def cache_set(key, data):
+    _cache[key] = (data, time.time())
+
+def cache_clear():
+    _cache.clear()
 
 # ============================================================
 # Connection
@@ -48,7 +68,7 @@ def get_sqlite_conn():
     return conn
 
 # ============================================================
-# Init — مع AI columns
+# Init
 # ============================================================
 
 def init_db():
@@ -58,23 +78,16 @@ def init_db():
             cur  = conn.cursor()
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS posted_news (
-                    id        TEXT PRIMARY KEY,
-                    title     TEXT,
-                    source    TEXT,
-                    posted_at TEXT,
-                    summary   TEXT,
-                    sentiment TEXT,
-                    reason    TEXT
+                    id TEXT PRIMARY KEY, title TEXT, source TEXT, posted_at TEXT,
+                    summary TEXT, sentiment TEXT, reason TEXT
                 )
             """)
-            # إيلا الجدول قديم بلا AI columns نزيدهم
             for col in ["summary", "sentiment", "reason"]:
                 try:
                     cur.execute(f"ALTER TABLE posted_news ADD COLUMN {col} TEXT")
                 except Exception:
                     pass
-            conn.commit()
-            cur.close(); conn.close()
+            conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
                 conn.execute("""
@@ -108,15 +121,13 @@ def is_posted(news_id: str) -> bool:
             return result
         else:
             with get_sqlite_conn() as conn:
-                return conn.execute(
-                    "SELECT 1 FROM posted_news WHERE id = ?", (news_id,)
-                ).fetchone() is not None
+                return conn.execute("SELECT 1 FROM posted_news WHERE id = ?", (news_id,)).fetchone() is not None
     except Exception as e:
         logger.error(f"❌ is_posted: {e}")
         return False
 
 # ============================================================
-# mark_posted — مع AI data
+# mark_posted
 # ============================================================
 
 def mark_posted(news_id: str, title: str, source: str,
@@ -139,6 +150,7 @@ def mark_posted(news_id: str, title: str, source: str,
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (news_id, title, source, posted_at, summary, sentiment, reason))
                 conn.commit()
+        cache_clear()  # تحديث الكاش
     except Exception as e:
         logger.error(f"❌ mark_posted: {e}")
 
@@ -165,7 +177,7 @@ def get_recent_titles(limit: int = 200) -> list:
         return []
 
 # ============================================================
-# get_news_by_id — query مباشر للـ SEO page
+# get_news_by_id
 # ============================================================
 
 def get_news_by_id(news_id: str):
@@ -179,19 +191,22 @@ def get_news_by_id(news_id: str):
             return dict(row) if row else None
         else:
             with get_sqlite_conn() as conn:
-                row = conn.execute(
-                    "SELECT * FROM posted_news WHERE id = ?", (news_id,)
-                ).fetchone()
+                row = conn.execute("SELECT * FROM posted_news WHERE id = ?", (news_id,)).fetchone()
                 return dict(row) if row else None
     except Exception as e:
         logger.error(f"❌ get_news_by_id: {e}")
         return None
 
 # ============================================================
-# get_news
+# get_news — مع cache
 # ============================================================
 
 def get_news(page: int = 1, per_page: int = 20, search: str = None):
+    cache_key = f"news_{page}_{per_page}_{search}"
+    cached = cache_get(cache_key)
+    if cached:
+        return cached
+
     offset = (page - 1) * per_page
     try:
         if USE_POSTGRES:
@@ -213,7 +228,7 @@ def get_news(page: int = 1, per_page: int = 20, search: str = None):
                 cur.execute("SELECT COUNT(*) as count FROM posted_news")
             total = cur.fetchone()["count"]
             cur.close(); conn.close()
-            return [dict(r) for r in rows], total
+            result = [dict(r) for r in rows], total
         else:
             with get_sqlite_conn() as conn:
                 if search:
@@ -222,16 +237,23 @@ def get_news(page: int = 1, per_page: int = 20, search: str = None):
                 else:
                     rows  = conn.execute("SELECT * FROM posted_news ORDER BY posted_at DESC LIMIT ? OFFSET ?", (per_page, offset)).fetchall()
                     total = conn.execute("SELECT COUNT(*) FROM posted_news").fetchone()[0]
-                return [dict(r) for r in rows], total
+                result = [dict(r) for r in rows], total
+
+        cache_set(cache_key, result)
+        return result
     except Exception as e:
         logger.error(f"❌ get_news: {e}")
         return [], 0
 
 # ============================================================
-# get_stats
+# get_stats — مع cache
 # ============================================================
 
 def get_stats():
+    cached = cache_get("stats")
+    if cached:
+        return cached
+
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
@@ -246,29 +268,37 @@ def get_stats():
         else:
             with get_sqlite_conn() as conn:
                 total   = conn.execute("SELECT COUNT(*) FROM posted_news").fetchone()[0]
-                today   = conn.execute("SELECT COUNT(*) FROM posted_news WHERE posted_at >= date('now')").fetchone()[0]
+                today   = conn.execute("SELECT COUNT(*) FROM posted_news WHERE posted_at >= datetime('now', '-1 day')").fetchone()[0]
                 sources = [{"name": r[0], "count": r[1]} for r in conn.execute(
                     "SELECT source, COUNT(*) as c FROM posted_news GROUP BY source ORDER BY c DESC"
                 ).fetchall()]
-        return {"total": total, "today": today, "sources": sources}
+
+        result = {"total": total, "today": today, "sources": sources}
+        cache_set("stats", result)
+        return result
     except Exception as e:
         logger.error(f"❌ get_stats: {e}")
         return {"total": 0, "today": 0, "sources": []}
 
 # ============================================================
-# cleanup_old
+# cleanup_old — يحذف بعد يومين فقط
 # ============================================================
 
-def cleanup_old(days: int = 30):
+def cleanup_old(days: int = 2):
     try:
         if USE_POSTGRES:
             conn = get_pg_conn()
             cur  = conn.cursor()
             cur.execute(f"DELETE FROM posted_news WHERE posted_at::timestamp < NOW() - INTERVAL '{days} days'")
+            deleted = cur.rowcount
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
                 conn.execute("DELETE FROM posted_news WHERE posted_at < datetime('now', ?)", (f'-{days} days',))
+                deleted = conn.execute("SELECT changes()").fetchone()[0]
                 conn.commit()
+        if deleted > 0:
+            logger.info(f"🗑️ حذفنا {deleted} خبر قديم")
+        cache_clear()
     except Exception as e:
         logger.error(f"❌ cleanup_old: {e}")
