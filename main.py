@@ -1,5 +1,7 @@
 """
 main.py - نقطة البداية
+- posted_news: الموقع — ما يتحذفش أبداً
+- telegram_log: تيليغرام — يتحذف كل 6 ساعات
 """
 
 import sys
@@ -14,7 +16,13 @@ from config import (
     PRICE_ALERT_COINS, PRICE_ALERT_THRESHOLD, PRICE_CHECK_INTERVAL,
     CLEANUP_HOURS,
 )
-from database import init_db, is_posted, mark_posted, get_recent_titles, cleanup_old
+from database import (
+    init_db,
+    is_telegram_posted, mark_telegram_posted,
+    save_news,
+    get_recent_titles,
+    cleanup_telegram_log,
+)
 from scraper import fetch_all_news
 from processor import is_important, is_breaking, is_high_impact, is_duplicate, format_message, prioritize
 from bot import send_message, send_price_alert
@@ -42,6 +50,7 @@ def check_price_alerts():
     if now - _last_price_check < PRICE_CHECK_INTERVAL * 60:
         return
     _last_price_check = now
+
     try:
         resp = _session.get(
             "https://api.coingecko.com/api/v3/simple/price",
@@ -50,11 +59,13 @@ def check_price_alerts():
         )
         data = resp.json()
     except Exception as e:
-        logger.warning(f"⚠️ فشل الأسعار: {e}"); return
+        logger.warning(f"⚠️ فشل الأسعار: {e}")
+        return
 
     for coin_id, symbol in PRICE_ALERT_COINS.items():
         raw = data.get(coin_id, {})
-        if not raw: continue
+        if not raw:
+            continue
         price    = raw.get("usd", 0)
         change1h = round(raw.get("usd_1h_change", 0), 2)
         if abs(change1h) >= PRICE_ALERT_THRESHOLD:
@@ -64,10 +75,10 @@ def check_price_alerts():
             send_price_alert(
                 f"⚡️ <b>Price Alert — {symbol}</b>\n\n"
                 f"{direction} in the last hour!\n\n"
-                f"💰 {price_str}\n📈 1h: {sign}{change1h}%\n\n"
+                f"💰 {price_str}\n"
+                f"📈 1h: {sign}{change1h}%\n\n"
                 f"#Crypto #{symbol} #PriceAlert"
             )
-            logger.info(f"⚡️ {symbol} {sign}{change1h}%")
 
 # ============================================================
 # Enrich
@@ -92,35 +103,42 @@ def process_item(args):
     item, recent_titles = args
     news_id = item["id"]
     title   = item["title"]
-    if is_posted(news_id): return None
+
+    # تحقق من telegram_log — مو posted_news
+    if is_telegram_posted(news_id):
+        return None
+
     if is_duplicate(title, recent_titles):
-        logger.info(f"🔁 مشابه: {title[:60]}"); return None
-    msg, ai    = format_message(item)
+        logger.info(f"🔁 مشابه: {title[:60]}")
+        return None
+
+    msg, ai = format_message(item)
     message_id = send_message(msg)
+
     if message_id:
-        mark_posted(news_id, title, item["source"],
-                    summary=ai.get("summary",""),
-                    sentiment=ai.get("sentiment",""),
-                    reason=ai.get("reason",""))
+        # حفظ في الجدولين
+        mark_telegram_posted(news_id)
+        save_news(
+            news_id, title, item["source"],
+            summary=ai.get("summary", ""),
+            sentiment=ai.get("sentiment", ""),
+            reason=ai.get("reason", "")
+        )
         return title
+
     return None
 
 # ============================================================
 # Main cycle
 # ============================================================
 
-_cycle_count = 0
-
 def run_cycle():
-    global _cycle_count
-    _cycle_count += 1
-    logger.info(f"🔄 دورة #{_cycle_count} — UTC {now_utc().strftime('%H:%M:%S')}")
+    logger.info(f"🔄 UTC {now_utc().strftime('%H:%M:%S')}")
+
+    # تنظيف telegram_log فقط — الموقع ما يتأثرش
+    cleanup_telegram_log(hours=CLEANUP_HOURS)
 
     check_price_alerts()
-
-    # كل 6 دورات (= كل ساعة ونص تقريباً) نحذف الأخبار القديمة
-    if _cycle_count % 6 == 0:
-        cleanup_old(hours=CLEANUP_HOURS)
 
     all_news      = fetch_all_news()
     enriched      = enrich(all_news)
@@ -129,6 +147,7 @@ def run_cycle():
     posted_count  = 0
 
     items = prioritized[:MAX_POSTS_PER_CYCLE]
+
     with ThreadPoolExecutor(max_workers=3) as executor:
         results = list(executor.map(process_item, [(item, recent_titles) for item in items]))
 
@@ -151,8 +170,8 @@ def main():
     send_message(
         f"🚀 <b>Bot Started!</b>\n\n"
         f"⏱ Every {INTERVAL_MINUTES} minutes\n"
-        f"🗑 Auto-cleanup every {CLEANUP_HOURS}h\n"
-        f"⚡️ Price alerts ≥{PRICE_ALERT_THRESHOLD}%/hour\n"
+        f"🗑 Telegram log cleanup every {CLEANUP_HOURS}h\n"
+        f"📰 Website keeps ALL news forever\n"
         f"🕐 {now_utc().strftime('%H:%M UTC')}"
     )
 
@@ -160,7 +179,8 @@ def main():
         try:
             run_cycle()
         except Exception as e:
-            logger.error(f"❌ {e}"); traceback.print_exc()
+            logger.error(f"❌ {e}")
+            traceback.print_exc()
         logger.info(f"😴 {INTERVAL_MINUTES} دقيقة...")
         time.sleep(INTERVAL_MINUTES * 60)
 
@@ -168,4 +188,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        logger.critical(f"❌ {e}"); traceback.print_exc(); sys.exit(1)
+        logger.critical(f"❌ {e}")
+        traceback.print_exc()
+        sys.exit(1)
