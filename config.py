@@ -8,7 +8,7 @@ import os
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID   = os.environ.get("TELEGRAM_CHAT_ID", "")
 
-# Timing
+# Timing — كل 15 دقيقة كافي
 INTERVAL_MINUTES = int(os.environ.get("INTERVAL_MINUTES", "15"))
 
 # OpenAI
@@ -113,10 +113,10 @@ PRICE_CHECK_INTERVAL  = int(os.environ.get("PRICE_CHECK_INTERVAL", "15"))
 # Duplicate Detection
 SIMILARITY_THRESHOLD = 0.85
 
-# Posting
+# Posting — 10 في كل دورة
 MAX_POSTS_PER_CYCLE  = 10
 DELAY_BETWEEN_POSTS  = 2
 MAX_RETRIES_TELEGRAM = 3
 
-# FIX: حذف الأخبار بعد يومين — كانت 30 يوم في main.py، الآن نستعملو هذا المتغير في كل مكان
-CLEANUP_DAYS = int(os.environ.get("CLEANUP_DAYS", "2"))
+# حذف الأخبار بعد كم يوم
+CLEANUP_DAYS = 2  # يومين فقط باش تتنشر مرة أخرى
