@@ -184,7 +184,7 @@ def health():
 
 @app.route("/admin/clear")
 def admin_clear():
-    """حذف جميع الأخبار من DB باش البوت يبدا ينشر من جديد"""
+    """حذف telegram_log فقط — الموقع ما يتأثرش"""
     key = request.args.get("key", "")
     if key != ADMIN_KEY:
         return jsonify({"error": "Unauthorized"}), 401
@@ -193,21 +193,40 @@ def admin_clear():
         from database import get_pg_conn, get_sqlite_conn, USE_POSTGRES, cache_clear
 
         if USE_POSTGRES:
-            conn = get_pg_conn()
-            cur  = conn.cursor()
-            cur.execute("DELETE FROM posted_news")
+            conn = get_pg_conn(); cur = conn.cursor()
+            # إنشاء الجدول إيلا ما كانش موجود
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS telegram_log (
+                    id TEXT PRIMARY KEY, posted_at TEXT
+                )
+            """)
+            cur.execute("DELETE FROM telegram_log")
             deleted = cur.rowcount
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
-                cur = conn.execute("DELETE FROM posted_news")
+                conn.execute("""CREATE TABLE IF NOT EXISTS telegram_log (id TEXT PRIMARY KEY, posted_at TEXT)""")
+                cur = conn.execute("DELETE FROM telegram_log")
                 deleted = cur.rowcount
                 conn.commit()
 
         cache_clear()
         _page_cache.clear()
-        return jsonify({"status": "✅ DB cleared", "deleted": deleted})
+        return jsonify({"status": "✅ telegram_log cleared", "deleted": deleted, "note": "posted_news (website) untouched"})
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/admin/init")
+def admin_init():
+    """إنشاء جميع الجداول — شغلو مرة واحدة بعد deploy"""
+    key = request.args.get("key", "")
+    if key != ADMIN_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
+    try:
+        from database import init_db
+        init_db()
+        return jsonify({"status": "✅ DB initialized"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
