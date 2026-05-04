@@ -119,4 +119,4 @@ DELAY_BETWEEN_POSTS  = 2
 MAX_RETRIES_TELEGRAM = 3
 
 # حذف الأخبار بعد كم يوم
-CLEANUP_DAYS = 2  # يومين فقط باش تتنشر مرة أخرى
+CLEANUP_HOURS = 2  # يومين فقط باش تتنشر مرة أخرى
