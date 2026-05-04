@@ -1,6 +1,6 @@
 """
 web.py - Flask web server
-RSS Feed + Cache + SEO
+RSS Feed + Cache + SEO + Admin
 """
 
 from flask import Flask, render_template, jsonify, request, Response
@@ -13,14 +13,15 @@ init_db()
 
 SITE_URL     = os.environ.get("SITE_URL", "https://rare-spontaneity-production-1b51.up.railway.app")
 SITE_NAME    = "CryptositNews"
-GSC_META_TAG = os.environ.get("GSC_META_TAG", "")  # Google Search Console verification
+GSC_META_TAG = os.environ.get("GSC_META_TAG", "")
+ADMIN_KEY    = os.environ.get("ADMIN_KEY", "cryptosit2025")
 
 # ============================================================
-# Simple page cache
+# Page cache
 # ============================================================
 
 _page_cache = {}
-PAGE_CACHE_TTL = 120  # ثانيتين
+PAGE_CACHE_TTL = 120
 
 def page_cache_get(key):
     if key in _page_cache:
@@ -113,7 +114,7 @@ def news_page(news_id):
     return render_template("article.html", item=item, site_url=SITE_URL)
 
 # ============================================================
-# RSS Feed للموقع
+# RSS Feed
 # ============================================================
 
 @app.route("/feed")
@@ -129,12 +130,11 @@ def rss_feed():
     items   = []
 
     for item in news:
-        title     = item["title"].replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-        link      = f"{SITE_URL}/news/{item['id']}"
-        pub_date  = item["posted_at"][:19].replace("T", " ") + " UTC"
-        source    = item["source"].replace("&","&amp;")
-        desc      = item.get("summary", title)
-        desc      = desc.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+        title    = item["title"].replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+        link     = f"{SITE_URL}/news/{item['id']}"
+        pub_date = item["posted_at"][:19].replace("T", " ") + " UTC"
+        source   = item["source"].replace("&","&amp;")
+        desc     = (item.get("summary") or item["title"]).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 
         items.append(f"""  <item>
     <title>{title}</title>
@@ -150,7 +150,7 @@ def rss_feed():
 <channel>
   <title>{SITE_NAME} — Live Crypto News</title>
   <link>{SITE_URL}</link>
-  <description>Real-time crypto and trading news from 25+ sources</description>
+  <description>Real-time crypto and trading news</description>
   <language>en-us</language>
   <atom:link href="{SITE_URL}/feed.xml" rel="self" type="application/rss+xml"/>
 {"".join(items)}
@@ -179,6 +179,39 @@ def health():
     return jsonify({"status": "ok"})
 
 # ============================================================
+# Admin — حذف DB
+# ============================================================
+
+@app.route("/admin/clear")
+def admin_clear():
+    """حذف جميع الأخبار من DB باش البوت يبدا ينشر من جديد"""
+    key = request.args.get("key", "")
+    if key != ADMIN_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        from database import get_pg_conn, get_sqlite_conn, USE_POSTGRES, cache_clear
+
+        if USE_POSTGRES:
+            conn = get_pg_conn()
+            cur  = conn.cursor()
+            cur.execute("DELETE FROM posted_news")
+            deleted = cur.rowcount
+            conn.commit(); cur.close(); conn.close()
+        else:
+            with get_sqlite_conn() as conn:
+                cur = conn.execute("DELETE FROM posted_news")
+                deleted = cur.rowcount
+                conn.commit()
+
+        cache_clear()
+        _page_cache.clear()
+        return jsonify({"status": "✅ DB cleared", "deleted": deleted})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ============================================================
 # SEO
 # ============================================================
 
@@ -191,30 +224,20 @@ def sitemap():
     news, _ = get_news(page=1, per_page=1000)
     urls = [f"<url><loc>{SITE_URL}/</loc><changefreq>hourly</changefreq><priority>1.0</priority></url>"]
 
-    # Category pages
     for cat in ["bitcoin","ethereum","defi","nft","regulation","market","altcoin","breaking"]:
         urls.append(f"<url><loc>{SITE_URL}/?tab={cat}</loc><changefreq>hourly</changefreq><priority>0.9</priority></url>")
 
     for item in news:
         nid = item["id"].replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-        urls.append(
-            f"<url><loc>{SITE_URL}/news/{nid}</loc>"
-            f"<lastmod>{item['posted_at'][:10]}</lastmod>"
-            f"<changefreq>never</changefreq><priority>0.8</priority></url>"
-        )
+        urls.append(f"<url><loc>{SITE_URL}/news/{nid}</loc><lastmod>{item['posted_at'][:10]}</lastmod><changefreq>never</changefreq><priority>0.8</priority></url>")
+
     xml = f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{"".join(urls)}\n</urlset>'
     page_cache_set("sitemap", xml)
     return Response(xml, mimetype="application/xml")
 
 @app.route("/robots.txt")
 def robots():
-    content = f"""User-agent: *
-Allow: /
-Sitemap: {SITE_URL}/sitemap.xml
-
-# RSS Feed
-# {SITE_URL}/feed.xml"""
-    return Response(content, mimetype="text/plain")
+    return Response(f"User-agent: *\nAllow: /\nSitemap: {SITE_URL}/sitemap.xml", mimetype="text/plain")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
