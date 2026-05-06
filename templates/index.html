@@ -406,14 +406,26 @@ footer a{color:var(--purple);text-decoration:none;}
 
       <div class="widget">
         <div class="widget-title">🤖 AI Market Signal</div>
-        <div class="ai-preview"><b>BTC:</b> Bullish momentum detected</div>
-        <div class="price-row"><span class="coin-sym">Confidence</span><span class="up">72%</span></div>
-        <div class="fg-sub">Reason: ETF inflow + positive sentiment spike</div>
+        <div class="ai-preview"><b>{{ intel.ai_signal.coin }}:</b> {{ intel.ai_signal.signal }} momentum detected</div>
+        <div class="price-row"><span class="coin-sym">Confidence</span><span class="up">{{ intel.ai_signal.confidence }}%</span></div>
+        <div class="fg-sub">Reason: {{ intel.ai_signal.reason }}</div>
+      </div>
+
+      <div class="widget">
+        <div class="widget-title">📊 Sentiment Trend</div>
+        <div class="price-row"><span class="coin-sym">Bullish</span><span class="up">{{ intel.sentiment.bullish }}%</span></div>
+        <div class="price-row"><span class="coin-sym">Bearish</span><span class="dn">{{ intel.sentiment.bearish }}%</span></div>
       </div>
 
       <div class="widget">
         <div class="widget-title">🐋 Whale Activity</div>
-        <div id="whaleActivity" style="font-family:var(--mono);font-size:.62rem;color:var(--muted);line-height:1.6;">Monitoring large transfers and exchange inflows...</div>
+        <div id="whaleActivity" style="font-family:var(--mono);font-size:.62rem;color:var(--muted);line-height:1.6;">
+          {% if intel.whale_activity %}
+            {% for w in intel.whale_activity %}• {{ w }}<br>{% endfor %}
+          {% else %}
+            No significant whale-tagged headlines in latest batch.
+          {% endif %}
+        </div>
       </div>
 
       <div class="widget" id="fgWidget">

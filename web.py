@@ -103,6 +103,66 @@ def filter_by_category(news_list: list, category: str) -> list:
         return news_list
     return [n for n in news_list if get_category(n["title"]) == category]
 
+
+def compute_market_intelligence(items: list) -> dict:
+    positive_words = ["surge","rally","pump","breakout","approved","inflow","gain","bull","soar","up"]
+    negative_words = ["crash","dump","hack","exploit","lawsuit","ban","outflow","fall","drop","bear"]
+    coin_aliases = {"BTC":["bitcoin","btc"],"ETH":["ethereum","eth"],"SOL":["solana","sol"],"BNB":["bnb","binance"],"XRP":["xrp","ripple"]}
+
+    coin_scores = {c:{"pos":0,"neg":0,"mentions":0} for c in coin_aliases}
+    whale_hits = []
+    bull = bear = 0
+
+    for item in items[:50]:
+        text = f"{item.get('title','')} {item.get('summary','')}".lower()
+        pos = sum(1 for w in positive_words if w in text)
+        neg = sum(1 for w in negative_words if w in text)
+
+        if pos > neg:
+            bull += 1
+        elif neg > pos:
+            bear += 1
+
+        if any(k in text for k in ["whale","million","moved","transfer","inflow","outflow"]):
+            whale_hits.append(item.get("title",""))
+
+        for coin, keys in coin_aliases.items():
+            if any(k in text for k in keys):
+                coin_scores[coin]["mentions"] += 1
+                coin_scores[coin]["pos"] += pos
+                coin_scores[coin]["neg"] += neg
+
+    best_coin = "BTC"
+    best_delta = -10**9
+    for coin, s in coin_scores.items():
+        delta = s["pos"] - s["neg"]
+        if s["mentions"] > 0 and delta > best_delta:
+            best_delta = delta
+            best_coin = coin
+
+    c = coin_scores[best_coin]
+    total = max(1, c["pos"] + c["neg"])
+    confidence = min(95, int(50 + (abs(c["pos"] - c["neg"]) / total) * 45))
+    signal = "Bullish" if c["pos"] >= c["neg"] else "Bearish"
+
+    total_sent = max(1, bull + bear)
+    bullish_pct = int((bull / total_sent) * 100)
+    bearish_pct = 100 - bullish_pct
+
+    return {
+        "ai_signal": {
+            "coin": best_coin,
+            "signal": signal,
+            "confidence": confidence,
+            "reason": f"Positive signals {c['pos']} vs negative {c['neg']} across {c['mentions']} related stories"
+        },
+        "sentiment": {
+            "bullish": bullish_pct,
+            "bearish": bearish_pct
+        },
+        "whale_activity": whale_hits[:3],
+    }
+
 # ============================================================
 # Main page
 # ============================================================
@@ -126,9 +186,12 @@ def index():
 
     stats = get_stats()
     pages = max(1, (total + 19) // 20)
+    latest_batch, _ = get_news(page=1, per_page=60)
+    intel = compute_market_intelligence(latest_batch)
 
     rendered = render_template("index.html",
         news=news, stats=stats,
+        intel=intel,
         page=page, pages=pages,
         total=total, search=search,
         active_tab=active_tab,
