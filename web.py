@@ -16,6 +16,48 @@ SITE_NAME    = "CryptositNews"
 GSC_META_TAG = os.environ.get("GSC_META_TAG", "")
 ADMIN_KEY    = os.environ.get("ADMIN_KEY", "cryptosit2025")
 
+MAX_FILTER_SCAN = int(os.environ.get("MAX_FILTER_SCAN", "5000"))
+
+def parse_int_param(name: str, default: int, minimum: int = None, maximum: int = None) -> int:
+    raw = request.args.get(name, default)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = default
+    if minimum is not None:
+        value = max(minimum, value)
+    if maximum is not None:
+        value = min(maximum, value)
+    return value
+
+def get_filtered_news_page(category: str, search: str, page: int, per_page: int):
+    target_start = (page - 1) * per_page
+    target_end = target_start + per_page
+
+    matched = []
+    total_matched = 0
+    scanned = 0
+    db_page = 1
+    db_batch = 200
+
+    while scanned < MAX_FILTER_SCAN:
+        batch, _ = get_news(page=db_page, per_page=db_batch, search=search or None)
+        if not batch:
+            break
+
+        scanned += len(batch)
+        for item in batch:
+            if get_category(item["title"]) != category:
+                continue
+
+            if target_start <= total_matched < target_end:
+                matched.append(item)
+            total_matched += 1
+
+        db_page += 1
+
+    return matched, total_matched
+
 # ============================================================
 # Page cache
 # ============================================================
@@ -67,7 +109,7 @@ def filter_by_category(news_list: list, category: str) -> list:
 
 @app.route("/")
 def index():
-    page       = int(request.args.get("page", 1))
+    page       = parse_int_param("page", default=1, minimum=1)
     search     = request.args.get("q", "").strip()
     active_tab = request.args.get("tab", "").strip()
 
@@ -76,15 +118,11 @@ def index():
     if cached and not search:
         return cached
 
+    per_page = 20
     if active_tab and active_tab != "all":
-        all_news, _ = get_news(page=1, per_page=500, search=search or None)
-        filtered    = filter_by_category(all_news, active_tab)
-        per_page    = 20
-        total       = len(filtered)
-        start       = (page - 1) * per_page
-        news        = filtered[start:start + per_page]
+        news, total = get_filtered_news_page(active_tab, search, page, per_page)
     else:
-        news, total = get_news(page=1, per_page=200, search=search or None)
+        news, total = get_news(page=page, per_page=per_page, search=search or None)
 
     stats = get_stats()
     pages = max(1, (total + 19) // 20)
@@ -166,13 +204,17 @@ def rss_feed():
 
 @app.route("/api/news")
 def api_news():
-    page   = int(request.args.get("page", 1))
+    page   = parse_int_param("page", default=1, minimum=1)
+    per_page = parse_int_param("per_page", default=20, minimum=1, maximum=100)
     search = request.args.get("q", "").strip()
     cat    = request.args.get("cat", "").strip()
-    news, total = get_news(page=page, search=search or None)
-    if cat:
-        news = filter_by_category(news, cat)
-    return jsonify({"news": news, "total": total})
+
+    if cat and cat != "all":
+        news, total = get_filtered_news_page(cat, search, page, per_page)
+    else:
+        news, total = get_news(page=page, per_page=per_page, search=search or None)
+
+    return jsonify({"news": news, "total": total, "page": page, "per_page": per_page})
 
 @app.route("/health")
 def health():
