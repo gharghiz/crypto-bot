@@ -169,7 +169,8 @@ def get_cached_intel() -> dict:
     cached = page_cache_get("global_intel")
     if cached:
         return cached
-    intel = get_cached_intel()
+    latest_batch, _ = get_news(page=1, per_page=60)
+    intel = compute_market_intelligence(latest_batch)
     page_cache_set("global_intel", intel)
     return intel
 
