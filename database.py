@@ -175,13 +175,11 @@ def is_telegram_posted(news_id: str) -> bool:
 def mark_telegram_posted(news_id: str):
     """سجل في telegram_log"""
     posted_at = now_utc().isoformat()
-    category = categorize_title(title)
     try:
         if USE_POSTGRES:
             conn = get_pg_conn(); cur = conn.cursor()
             cur.execute("INSERT INTO telegram_log (id, posted_at) VALUES (%s, %s) ON CONFLICT (id) DO NOTHING",
                        (news_id, posted_at))
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_posted_news_category_posted_at ON posted_news (category, posted_at DESC)")
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
@@ -198,6 +196,7 @@ def save_news(news_id: str, title: str, source: str,
               summary: str = "", sentiment: str = "", reason: str = ""):
     """حفظ في posted_news — ما يتحذفش أبداً"""
     posted_at = now_utc().isoformat()
+    category = categorize_title(title)
     try:
         if USE_POSTGRES:
             conn = get_pg_conn(); cur = conn.cursor()
@@ -205,7 +204,6 @@ def save_news(news_id: str, title: str, source: str,
                 INSERT INTO posted_news (id, title, source, posted_at, summary, sentiment, reason, category)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING
             """, (news_id, title, source, posted_at, summary, sentiment, reason, category))
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_posted_news_category_posted_at ON posted_news (category, posted_at DESC)")
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
@@ -235,7 +233,6 @@ def cleanup_telegram_log(hours: int = 6):
                 )
             """, (hours,))
             deleted = cur.rowcount
-            cur.execute("CREATE INDEX IF NOT EXISTS idx_posted_news_category_posted_at ON posted_news (category, posted_at DESC)")
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:

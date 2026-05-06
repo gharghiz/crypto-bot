@@ -27,7 +27,7 @@
 body{background:radial-gradient(1200px 500px at 20% -10%, rgba(124,77,255,.14), transparent 55%),radial-gradient(900px 420px at 80% -15%, rgba(0,229,255,.12), transparent 60%),var(--bg);color:var(--text);font-family:var(--display);min-height:100vh;overflow-x:hidden;line-height:1.45;}
 
 /* HEADER */
-header{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--surface) 88%, transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);box-shadow:0 2px 12px var(--shadow);}
+header{position:sticky;top:0;z-index:100;background:rgba(14,14,26,.88);background:color-mix(in srgb,var(--surface) 88%, transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);box-shadow:0 2px 12px var(--shadow);}
 .header-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;gap:1rem;height:62px;padding:0 1.5rem;}
 .logo{display:flex;align-items:center;gap:.5rem;text-decoration:none;flex-shrink:0;}
 .logo-mark{width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.7rem;color:#000;}
@@ -193,6 +193,12 @@ footer{border-top:1px solid var(--border);margin-top:2rem;padding:1.2rem 1.5rem;
 footer a{color:var(--purple);text-decoration:none;}
 
 /* MOBILE */
+@media (prefers-reduced-motion: reduce){
+  .news-card{animation:none !important;}
+  .ticker-track{animation:none !important;}
+  .live-dot{animation:none !important;opacity:1;}
+}
+
 @media(max-width:900px){
   .layout{grid-template-columns:1fr;}
   .sidebar{position:static;}

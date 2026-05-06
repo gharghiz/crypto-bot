@@ -7,6 +7,7 @@ from flask import Flask, render_template, jsonify, request, Response
 import os
 import time
 import requests
+import re
 from database import init_db, get_news, get_news_by_id, get_stats
 
 app = Flask(__name__)
@@ -16,8 +17,6 @@ SITE_URL     = os.environ.get("SITE_URL", "https://rare-spontaneity-production-1
 SITE_NAME    = "CryptositNews"
 GSC_META_TAG = os.environ.get("GSC_META_TAG", "")
 ADMIN_KEY    = os.environ.get("ADMIN_KEY", "cryptosit2025")
-
-MAX_FILTER_SCAN = int(os.environ.get("MAX_FILTER_SCAN", "5000"))
 
 def parse_int_param(name: str, default: int, minimum: int = None, maximum: int = None) -> int:
     raw = request.args.get(name, default)
@@ -56,30 +55,6 @@ def page_cache_set(key, data):
 # Category mapping
 # ============================================================
 
-def get_category(title: str) -> str:
-    t = title.lower()
-    if any(k in t for k in ["breaking", "urgent", "hack", "hacked", "exploit", "crash", "ban", "banned", "scam"]):
-        return "breaking"
-    if "bitcoin" in t or "btc" in t:
-        return "bitcoin"
-    if "ethereum" in t or " eth " in t or "ether " in t:
-        return "ethereum"
-    if any(k in t for k in ["defi", "uniswap", "aave", "compound", "protocol", "staking", "liquidity"]):
-        return "defi"
-    if any(k in t for k in ["nft", "non-fungible", "opensea", "metaverse"]):
-        return "nft"
-    if any(k in t for k in ["sec", "regulation", "legal", "congress", "government", "legislation", "lawsuit"]):
-        return "regulation"
-    if any(k in t for k in ["solana", "cardano", "ripple", "dogecoin", "bnb", "binance", "xrp", "doge", "ada", " sol "]):
-        return "altcoin"
-    return "market"
-
-def filter_by_category(news_list: list, category: str) -> list:
-    if not category or category == "all":
-        return news_list
-    return [n for n in news_list if get_category(n["title"]) == category]
-
-
 NEGATION_WORDS = {"not", "no", "despite", "survives", "resists", "avoided"}
 
 def _count_sentiment(tokens: list, words: set) -> int:
@@ -96,11 +71,12 @@ def _compose_text(item: dict) -> str:
     summary = item.get("summary") or ""
     if not summary and item.get("content"):
         summary = str(item.get("content"))[:150] + "..."
-    return f"{item.get('title','')} {summary}".lower()
+    raw = re.sub(r"<[^>]+>", " ", str(summary))
+    return f"{item.get('title','')} {raw}".lower().strip()
 
 def compute_market_intelligence(items: list) -> dict:
-    positive_words = {"surge","rally","pump","breakout","approved","inflow","gain","bull","soar","up"}
-    negative_words = {"crash","dump","hack","exploit","lawsuit","ban","outflow","fall","drop","bear"}
+    positive_words = {"surge","rally","pumped","breakout","approved","inflow","gained","bullish","soared","jumped","surging"}
+    negative_words = {"crashed","dumped","hacked","exploited","lawsuit","banned","outflow","falling","dropped","bearish","plunged","slumped"}
     coin_aliases = {"BTC":["bitcoin","btc"],"ETH":["ethereum","eth"],"SOL":["solana","sol"],"BNB":["bnb","binance"],"XRP":["xrp","ripple"]}
 
     coin_scores = {c:{"pos":0,"neg":0,"mentions":0} for c in coin_aliases}
@@ -127,13 +103,14 @@ def compute_market_intelligence(items: list) -> dict:
                 coin_scores[coin]["pos"] += pos
                 coin_scores[coin]["neg"] += neg
 
-    best_coin = "BTC"
-    best_delta = -10**9
-    for coin, s in coin_scores.items():
-        delta = s["pos"] - s["neg"]
-        if s["mentions"] > 0 and delta > best_delta:
-            best_delta = delta
-            best_coin = coin
+    best_coin = max(
+        coin_aliases.keys(),
+        key=lambda c: (
+            coin_scores[c]["mentions"] > 0,
+            coin_scores[c]["pos"] - coin_scores[c]["neg"],
+            coin_scores[c]["mentions"],
+        ),
+    )
 
     c = coin_scores[best_coin]
     total = max(1, c["pos"] + c["neg"])
@@ -287,6 +264,9 @@ def api_news():
 
 @app.route("/api/prices")
 def api_prices():
+    cached = page_cache_get("coin_prices")
+    if cached:
+        return jsonify(cached)
     mapping = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin", "XRP": "ripple"}
     try:
         resp = requests.get(
@@ -294,11 +274,14 @@ def api_prices():
             params={"ids": ",".join(mapping.values()), "vs_currencies": "usd", "include_24hr_change": "true"},
             timeout=6,
         )
+        if resp.status_code == 429:
+            return jsonify({"error": "Rate limited"}), 429
         data = resp.json()
         result = {}
         for sym, coin_id in mapping.items():
             d = data.get(coin_id, {})
             result[sym] = {"price": round(d.get("usd", 0), 2), "change": round(d.get("usd_24h_change", 0), 2)}
+        page_cache_set("coin_prices", result)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 503
