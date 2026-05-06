@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CryptositNews — Live Crypto Intelligence</title>
-<meta name="description" content="Real-time crypto and trading news. Breaking news, price alerts, and AI insights.">
+<title>CryptositNews — AI Crypto Intelligence Platform</title>
+<meta name="description" content="AI crypto intelligence platform with market signals, sentiment trends, and decision support.">
 <link rel="alternate" type="application/rss+xml" title="CryptositNews RSS" href="/feed.xml">
 {% if gsc_meta %}<meta name="google-site-verification" content="{{ gsc_meta }}">{% endif %}
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -65,15 +65,15 @@ header{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--surf
 
 /* HERO */
 .hero{background:linear-gradient(135deg,rgba(124,77,255,.12),rgba(0,229,255,.07));border-bottom:1px solid var(--border);padding:1.6rem;}
-.hero-inner{max-width:1400px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.5rem;align-items:center;}
-.hero-prices{display:flex;flex-direction:column;gap:.5rem;}
-.hero-price-row{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.6rem .9rem;}
-.hp-sym{font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--text);}
+.hero-inner{max-width:1400px;margin:0 auto;display:flex;gap:.8rem;align-items:stretch;overflow:auto;padding-bottom:.2rem;}
+.hero-prices{display:flex;flex-direction:row;gap:.5rem;min-width:max-content;}
+.hero-price-row{display:flex;align-items:center;gap:.45rem;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.6rem .85rem;min-width:145px;}
+.hp-sym{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text);}
 .hp-val{font-family:var(--mono);font-size:.75rem;}
-.hero-stat{text-align:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem;}
+.hero-stat{text-align:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:.85rem 1rem;min-width:170px;display:flex;flex-direction:column;justify-content:center;}
 .hero-stat .val{font-family:var(--mono);font-size:1.8rem;font-weight:700;color:var(--accent);}
 .hero-stat .lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
-.hero-top-story{background:linear-gradient(160deg,var(--card),color-mix(in srgb,var(--card) 78%, var(--purple) 22%));border:1px solid var(--border);border-radius:10px;padding:1rem;cursor:pointer;transition:all .2s;}
+.hero-top-story{background:linear-gradient(160deg,var(--card),color-mix(in srgb,var(--card) 78%, var(--purple) 22%));border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;cursor:pointer;transition:all .2s;min-width:420px;max-width:560px;}
 .hero-top-story:hover{border-color:var(--purple);}
 .hero-label{font-family:var(--mono);font-size:.58rem;color:var(--red);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.4rem;}
 .hero-title{font-size:1rem;font-weight:800;line-height:1.4;color:var(--text);}
@@ -197,7 +197,7 @@ footer a{color:var(--purple);text-decoration:none;}
   .sidebar{position:static;}
   .news-grid.grid-2{grid-template-columns:1fr;}
   .hero-inner{grid-template-columns:1fr;}
-  .hero-prices{display:none;}
+  .hero-prices{display:flex;flex-wrap:wrap;}
   .header-inner{flex-wrap:wrap;height:auto;padding:.5rem 1rem;gap:.5rem;}
   .search-wrap{order:3;max-width:100%;flex:1 1 100%;}
   .tg-btn{display:none;}
@@ -210,7 +210,7 @@ footer a{color:var(--purple);text-decoration:none;}
 
 <header>
   <div class="header-inner">
-    <a class="logo" href="/"><div class="logo-mark">₿</div><span class="logo-name">Cryptosit<em>News</em></span><span style="font-family:var(--mono);font-size:.52rem;color:var(--accent);border:1px solid rgba(0,229,255,.28);padding:.12rem .35rem;border-radius:999px;">ALPHA</span></a>
+    <a class="logo" href="/"><div class="logo-mark">₿</div><span class="logo-name">Cryptosit<em>IQ</em></span><span style="font-family:var(--mono);font-size:.52rem;color:var(--accent);border:1px solid rgba(0,229,255,.28);padding:.12rem .35rem;border-radius:999px;">ALPHA</span></a>
     <div class="live-pill"><div class="live-dot"></div>LIVE</div>
     <form class="search-wrap" method="get" action="/"><span class="s-icon">⌕</span><input type="text" name="q" placeholder="Search news, coins..." value="{{ search }}"></form>
     <div class="header-actions">
@@ -257,7 +257,7 @@ footer a{color:var(--purple);text-decoration:none;}
     </div>
     <div class="hero-stat">
       <div class="val">{{ stats.today }}</div>
-      <div class="lbl">News Today</div>
+      <div class="lbl">Signals Today</div>
     </div>
     <div class="hero-top-story" onclick="window.location='/news/{{ top.id }}'">
       <div class="hero-label">🔥 Top Story</div>
@@ -270,6 +270,9 @@ footer a{color:var(--purple);text-decoration:none;}
 
 <div class="container">
   <div class="stats-bar">
+    <div class="stat-chip"><span class="v">🧠</span><span class="l">Decision Engine</span></div>
+    <div class="stat-chip"><span class="v">📊</span><span class="l">Sentiment Trend</span></div>
+    <div class="stat-chip"><span class="v">⚡</span><span class="l">Market Signals</span></div>
     <div class="stat-chip"><span class="v">{{ stats.total }}</span><span class="l">Total</span></div>
     <div class="stat-chip"><span class="v">{{ stats.today }}</span><span class="l">Today</span></div>
     <div class="stat-chip"><span class="v">{{ stats.sources|length }}</span><span class="l">Sources</span></div>
@@ -399,6 +402,18 @@ footer a{color:var(--purple);text-decoration:none;}
         {% for sym in ['BTC','ETH','SOL','BNB','XRP'] %}
         <div class="price-row"><span class="coin-sym">{{ sym }}</span><span class="up" id="sp{{ sym }}">—</span></div>
         {% endfor %}
+      </div>
+
+      <div class="widget">
+        <div class="widget-title">🤖 AI Market Signal</div>
+        <div class="ai-preview"><b>BTC:</b> Bullish momentum detected</div>
+        <div class="price-row"><span class="coin-sym">Confidence</span><span class="up">72%</span></div>
+        <div class="fg-sub">Reason: ETF inflow + positive sentiment spike</div>
+      </div>
+
+      <div class="widget">
+        <div class="widget-title">🐋 Whale Activity</div>
+        <div id="whaleActivity" style="font-family:var(--mono);font-size:.62rem;color:var(--muted);line-height:1.6;">Monitoring large transfers and exchange inflows...</div>
       </div>
 
       <div class="widget" id="fgWidget">
