@@ -169,8 +169,7 @@ def get_cached_intel() -> dict:
     cached = page_cache_get("global_intel")
     if cached:
         return cached
-    latest_batch, _ = get_news(page=1, per_page=60)
-    intel = compute_market_intelligence(latest_batch)
+    intel = get_cached_intel()
     page_cache_set("global_intel", intel)
     return intel
 
@@ -197,8 +196,7 @@ def index():
 
     stats = get_stats()
     pages = max(1, (total + 19) // 20)
-    latest_batch, _ = get_news(page=1, per_page=60)
-    intel = compute_market_intelligence(latest_batch)
+    intel = get_cached_intel()
 
     rendered = render_template("index.html",
         news=news, stats=stats,
@@ -239,7 +237,7 @@ def rss_feed():
     if cached:
         return Response(cached, mimetype="application/rss+xml")
 
-    news, _ = get_news(page=1, per_page=50)
+    news, _ = get_news(page=1, per_page=50, search=None)
     items   = []
 
     for item in news:
