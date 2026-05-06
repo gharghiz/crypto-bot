@@ -163,6 +163,17 @@ def compute_market_intelligence(items: list) -> dict:
         "whale_activity": whale_hits[:3],
     }
 
+
+
+def get_cached_intel() -> dict:
+    cached = page_cache_get("global_intel")
+    if cached:
+        return cached
+    latest_batch, _ = get_news(page=1, per_page=60)
+    intel = compute_market_intelligence(latest_batch)
+    page_cache_set("global_intel", intel)
+    return intel
+
 # ============================================================
 # Main page
 # ============================================================
@@ -196,6 +207,7 @@ def index():
         total=total, search=search,
         active_tab=active_tab,
         gsc_meta=GSC_META_TAG,
+        site_url=SITE_URL,
     )
 
     if not search:

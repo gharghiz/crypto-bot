@@ -33,6 +33,7 @@ header{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--surf
 .logo-mark{width:28px;height:28px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.7rem;color:#000;}
 .logo-name{font-size:1rem;font-weight:800;letter-spacing:-.02em;text-shadow:0 0 22px rgba(0,229,255,.15);}
 .logo-name em{color:var(--accent);font-style:normal;}
+.alpha-badge{font-family:var(--mono);font-size:.65rem;color:var(--accent);border:1px solid rgba(0,229,255,.28);padding:.12rem .35rem;border-radius:999px;}
 .live-pill{display:flex;align-items:center;gap:.3rem;font-family:var(--mono);font-size:.58rem;color:var(--green);border:1px solid rgba(0,201,122,.2);padding:.2rem .5rem;border-radius:20px;flex-shrink:0;}
 .live-dot{width:5px;height:5px;background:var(--green);border-radius:50%;animation:blink 1.4s ease infinite;}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
@@ -44,7 +45,7 @@ header{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--surf
 .header-actions{display:flex;align-items:center;gap:.5rem;margin-left:auto;}
 .icon-btn{background:var(--bg);border:1px solid var(--border);color:var(--text);font-size:.82rem;width:32px;height:32px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;text-decoration:none;}
 .icon-btn:hover{border-color:var(--purple);}
-.tg-btn{display:flex;align-items:center;gap:.3rem;background:#0088cc;color:#fff;text-decoration:none;font-family:var(--mono);font-size:.62rem;padding:.3rem .7rem;border-radius:6px;flex-shrink:0;}
+.tg-btn{display:flex;align-items:center;gap:.3rem;background:#0088cc;color:#fff;text-decoration:none;font-family:var(--mono);font-size:.65rem;padding:.3rem .7rem;border-radius:6px;flex-shrink:0;}
 
 /* TICKER */
 .ticker-wrap{background:linear-gradient(90deg,color-mix(in srgb,var(--surface) 90%, var(--purple) 10%),var(--surface));border-bottom:1px solid var(--border);height:34px;overflow:hidden;display:flex;align-items:center;}
@@ -105,7 +106,7 @@ header{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--surf
 .news-grid.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
 
 /* NEWS CARD */
-.news-card{background:linear-gradient(180deg,color-mix(in srgb,var(--card) 88%, #fff 12%),var(--card));border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;cursor:pointer;position:relative;overflow:hidden;animation:fadeUp .3s ease both;transition:background .15s,border-color .15s,transform .15s,box-shadow .15s;}
+.news-card{background:linear-gradient(180deg,color-mix(in srgb,var(--card) 88%, #fff 12%),var(--card));border:1px solid var(--border);border-radius:10px;padding:.9rem 1rem;cursor:pointer;position:relative;overflow:hidden;animation:fadeUp .3s ease both;transition:background .15s,border-color .15s,transform .15s,box-shadow .15s;will-change:transform;}
 .news-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;transition:background .15s;}
 .news-card:hover{background:var(--card-h);border-color:var(--border-h);transform:translateY(-2px);box-shadow:0 10px 24px var(--shadow);}
 .nc-bitcoin::before{background:#f7931a;} .nc-ethereum::before{background:#627eea;}
@@ -174,7 +175,7 @@ header{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--surf
 .source-name{font-size:.72rem;color:var(--text);flex:1;}
 .bar-wrap{flex:1;margin:0 .5rem;height:2px;background:var(--border);border-radius:1px;}
 .bar-fill{height:100%;background:var(--purple);border-radius:1px;}
-.source-c{font-family:var(--mono);font-size:.62rem;color:var(--accent);}
+.source-c{font-family:var(--mono);font-size:.65rem;color:var(--accent);}
 
 /* LOAD MORE */
 .load-more-wrap{text-align:center;margin-top:1.5rem;}
@@ -183,7 +184,7 @@ header{position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--surf
 
 /* PAGINATION */
 .pagination{display:flex;justify-content:center;gap:.3rem;margin-top:1.5rem;}
-.pagination a,.pagination span{font-family:var(--mono);font-size:.62rem;padding:.35rem .62rem;border:1px solid var(--border);border-radius:6px;color:var(--muted);text-decoration:none;transition:all .15s;}
+.pagination a,.pagination span{font-family:var(--mono);font-size:.65rem;padding:.35rem .62rem;border:1px solid var(--border);border-radius:6px;color:var(--muted);text-decoration:none;transition:all .15s;}
 .pagination a:hover{border-color:var(--purple);color:var(--purple);}
 .pagination span.cur{background:var(--purple);border-color:var(--purple);color:#fff;}
 
@@ -196,8 +197,10 @@ footer a{color:var(--purple);text-decoration:none;}
   .layout{grid-template-columns:1fr;}
   .sidebar{position:static;}
   .news-grid.grid-2{grid-template-columns:1fr;}
-  .hero-inner{grid-template-columns:1fr;}
-  .hero-prices{display:flex;flex-wrap:wrap;}
+  .hero-inner{flex-direction:column;overflow:visible;}
+  .hero-prices{display:flex;flex-wrap:wrap;min-width:unset;}
+  .hero-top-story{min-width:unset;max-width:unset;}
+  .hero-stat{min-width:unset;}
   .header-inner{flex-wrap:wrap;height:auto;padding:.5rem 1rem;gap:.5rem;}
   .search-wrap{order:3;max-width:100%;flex:1 1 100%;}
   .tg-btn{display:none;}
@@ -210,7 +213,7 @@ footer a{color:var(--purple);text-decoration:none;}
 
 <header>
   <div class="header-inner">
-    <a class="logo" href="/"><div class="logo-mark">₿</div><span class="logo-name">Cryptosit<em>IQ</em></span><span style="font-family:var(--mono);font-size:.52rem;color:var(--accent);border:1px solid rgba(0,229,255,.28);padding:.12rem .35rem;border-radius:999px;">ALPHA</span></a>
+    <a class="logo" href="/"><div class="logo-mark">₿</div><span class="logo-name">Cryptosit<em>IQ</em></span><span class="alpha-badge">ALPHA</span></a>
     <div class="live-pill"><div class="live-dot"></div>LIVE</div>
     <form class="search-wrap" method="get" action="/"><span class="s-icon">⌕</span><input type="text" name="q" placeholder="Search news, coins..." value="{{ search }}"></form>
     <div class="header-actions">
@@ -288,8 +291,8 @@ footer a{color:var(--purple);text-decoration:none;}
     {% set words = item.title.split()|length %}
     {% set read_min = [1, (words // 200 + 1)]|max %}
     {% set enc_title = item.title | replace("'", "\\'") | replace('"', '&quot;') %}
-    {% set tw_url = "https://twitter.com/intent/tweet?text=" + (item.title | urlencode) + "&url=" + ("https://rare-spontaneity-production-1b51.up.railway.app/news/" + item.id | urlencode) %}
-    {% set tg_url = "https://t.me/share/url?url=" + ("https://rare-spontaneity-production-1b51.up.railway.app/news/" + item.id | urlencode) + "&text=" + (item.title | urlencode) %}
+    {% set tw_url = "https://twitter.com/intent/tweet?text=" + (item.title | urlencode) + "&url=" + (site_url + "/news/" + item.id | urlencode) %}
+    {% set tg_url = "https://t.me/share/url?url=" + (site_url + "/news/" + item.id | urlencode) + "&text=" + (item.title | urlencode) %}
 
     <article class="news-card nc-{{ cat }}"
              style="animation-delay:{{ idx * 0.04 }}s"
@@ -419,7 +422,7 @@ footer a{color:var(--purple);text-decoration:none;}
 
       <div class="widget">
         <div class="widget-title">🐋 Whale Activity</div>
-        <div id="whaleActivity" style="font-family:var(--mono);font-size:.62rem;color:var(--muted);line-height:1.6;">
+        <div id="whaleActivity" style="font-family:var(--mono);font-size:.65rem;color:var(--muted);line-height:1.6;">
           {% if intel.whale_activity %}
             {% for w in intel.whale_activity %}• {{ w }}<br>{% endfor %}
           {% else %}
