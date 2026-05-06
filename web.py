@@ -6,6 +6,7 @@ RSS Feed + Cache + SEO + Admin
 from flask import Flask, render_template, jsonify, request, Response
 import os
 import time
+import requests
 from database import init_db, get_news, get_news_by_id, get_stats
 
 app = Flask(__name__)
@@ -31,32 +32,7 @@ def parse_int_param(name: str, default: int, minimum: int = None, maximum: int =
     return value
 
 def get_filtered_news_page(category: str, search: str, page: int, per_page: int):
-    target_start = (page - 1) * per_page
-    target_end = target_start + per_page
-
-    matched = []
-    total_matched = 0
-    scanned = 0
-    db_page = 1
-    db_batch = 200
-
-    while scanned < MAX_FILTER_SCAN:
-        batch, _ = get_news(page=db_page, per_page=db_batch, search=search or None)
-        if not batch:
-            break
-
-        scanned += len(batch)
-        for item in batch:
-            if get_category(item["title"]) != category:
-                continue
-
-            if target_start <= total_matched < target_end:
-                matched.append(item)
-            total_matched += 1
-
-        db_page += 1
-
-    return matched, total_matched
+    return get_news(page=page, per_page=per_page, search=search or None, category=category)
 
 # ============================================================
 # Page cache
@@ -104,9 +80,27 @@ def filter_by_category(news_list: list, category: str) -> list:
     return [n for n in news_list if get_category(n["title"]) == category]
 
 
+NEGATION_WORDS = {"not", "no", "despite", "survives", "resists", "avoided"}
+
+def _count_sentiment(tokens: list, words: set) -> int:
+    score = 0
+    for i, token in enumerate(tokens):
+        if token not in words:
+            continue
+        context = tokens[max(0, i-2):i]
+        if not any(c in NEGATION_WORDS for c in context):
+            score += 1
+    return score
+
+def _compose_text(item: dict) -> str:
+    summary = item.get("summary") or ""
+    if not summary and item.get("content"):
+        summary = str(item.get("content"))[:150] + "..."
+    return f"{item.get('title','')} {summary}".lower()
+
 def compute_market_intelligence(items: list) -> dict:
-    positive_words = ["surge","rally","pump","breakout","approved","inflow","gain","bull","soar","up"]
-    negative_words = ["crash","dump","hack","exploit","lawsuit","ban","outflow","fall","drop","bear"]
+    positive_words = {"surge","rally","pump","breakout","approved","inflow","gain","bull","soar","up"}
+    negative_words = {"crash","dump","hack","exploit","lawsuit","ban","outflow","fall","drop","bear"}
     coin_aliases = {"BTC":["bitcoin","btc"],"ETH":["ethereum","eth"],"SOL":["solana","sol"],"BNB":["bnb","binance"],"XRP":["xrp","ripple"]}
 
     coin_scores = {c:{"pos":0,"neg":0,"mentions":0} for c in coin_aliases}
@@ -114,9 +108,10 @@ def compute_market_intelligence(items: list) -> dict:
     bull = bear = 0
 
     for item in items[:50]:
-        text = f"{item.get('title','')} {item.get('summary','')}".lower()
-        pos = sum(1 for w in positive_words if w in text)
-        neg = sum(1 for w in negative_words if w in text)
+        text = _compose_text(item)
+        tokens = text.replace("-", " ").split()
+        pos = _count_sentiment(tokens, positive_words)
+        neg = _count_sentiment(tokens, negative_words)
 
         if pos > neg:
             bull += 1
@@ -289,6 +284,24 @@ def api_news():
         news, total = get_news(page=page, per_page=per_page, search=search or None)
 
     return jsonify({"news": news, "total": total, "page": page, "per_page": per_page})
+
+@app.route("/api/prices")
+def api_prices():
+    mapping = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana", "BNB": "binancecoin", "XRP": "ripple"}
+    try:
+        resp = requests.get(
+            "https://api.coingecko.com/api/v3/simple/price",
+            params={"ids": ",".join(mapping.values()), "vs_currencies": "usd", "include_24hr_change": "true"},
+            timeout=6,
+        )
+        data = resp.json()
+        result = {}
+        for sym, coin_id in mapping.items():
+            d = data.get(coin_id, {})
+            result[sym] = {"price": round(d.get("usd", 0), 2), "change": round(d.get("usd_24h_change", 0), 2)}
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 503
 
 @app.route("/health")
 def health():

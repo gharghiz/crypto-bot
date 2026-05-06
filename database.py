@@ -16,6 +16,24 @@ logger = logging.getLogger("database")
 def now_utc():
     return datetime.now(timezone.utc)
 
+def categorize_title(title: str) -> str:
+    t = (title or "").lower()
+    if any(k in t for k in ["breaking", "urgent", "hack", "hacked", "exploit", "crash", "ban", "banned", "scam"]):
+        return "breaking"
+    if "bitcoin" in t or "btc" in t:
+        return "bitcoin"
+    if "ethereum" in t or " eth " in t or "ether " in t:
+        return "ethereum"
+    if any(k in t for k in ["defi", "uniswap", "aave", "compound", "protocol", "staking", "liquidity"]):
+        return "defi"
+    if any(k in t for k in ["nft", "non-fungible", "opensea", "metaverse"]):
+        return "nft"
+    if any(k in t for k in ["sec", "regulation", "legal", "congress", "government", "legislation", "lawsuit"]):
+        return "regulation"
+    if any(k in t for k in ["solana", "cardano", "ripple", "dogecoin", "bnb", "binance", "xrp", "doge", "ada", " sol "]):
+        return "altcoin"
+    return "market"
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "")
 DB_PATH      = os.environ.get("DB_PATH", "cryptobot.db")
 USE_POSTGRES = bool(DATABASE_URL and "postgres" in DATABASE_URL)
@@ -88,7 +106,8 @@ def init_db():
                     posted_at TEXT,
                     summary   TEXT,
                     sentiment TEXT,
-                    reason    TEXT
+                    reason    TEXT,
+                    category  TEXT
                 )
             """)
 
@@ -100,19 +119,20 @@ def init_db():
                 )
             """)
 
-            for col in ["summary", "sentiment", "reason"]:
+            for col in ["summary", "sentiment", "reason", "category"]:
                 try:
                     cur.execute(f"ALTER TABLE posted_news ADD COLUMN {col} TEXT")
                 except Exception:
                     pass
 
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_posted_news_category_posted_at ON posted_news (category, posted_at DESC)")
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS posted_news (
                         id TEXT PRIMARY KEY, title TEXT, source TEXT, posted_at TEXT,
-                        summary TEXT, sentiment TEXT, reason TEXT
+                        summary TEXT, sentiment TEXT, reason TEXT, category TEXT
                     )
                 """)
                 conn.execute("""
@@ -120,11 +140,12 @@ def init_db():
                         id TEXT PRIMARY KEY, posted_at TEXT
                     )
                 """)
-                for col in ["summary", "sentiment", "reason"]:
+                for col in ["summary", "sentiment", "reason", "category"]:
                     try:
                         conn.execute(f"ALTER TABLE posted_news ADD COLUMN {col} TEXT")
                     except Exception:
                         pass
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_posted_news_category_posted_at ON posted_news (category, posted_at DESC)")
                 conn.commit()
 
         logger.info("✅ DB جاهزة (posted_news + telegram_log)")
@@ -154,11 +175,13 @@ def is_telegram_posted(news_id: str) -> bool:
 def mark_telegram_posted(news_id: str):
     """سجل في telegram_log"""
     posted_at = now_utc().isoformat()
+    category = categorize_title(title)
     try:
         if USE_POSTGRES:
             conn = get_pg_conn(); cur = conn.cursor()
             cur.execute("INSERT INTO telegram_log (id, posted_at) VALUES (%s, %s) ON CONFLICT (id) DO NOTHING",
                        (news_id, posted_at))
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_posted_news_category_posted_at ON posted_news (category, posted_at DESC)")
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
@@ -179,16 +202,17 @@ def save_news(news_id: str, title: str, source: str,
         if USE_POSTGRES:
             conn = get_pg_conn(); cur = conn.cursor()
             cur.execute("""
-                INSERT INTO posted_news (id, title, source, posted_at, summary, sentiment, reason)
-                VALUES (%s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING
-            """, (news_id, title, source, posted_at, summary, sentiment, reason))
+                INSERT INTO posted_news (id, title, source, posted_at, summary, sentiment, reason, category)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING
+            """, (news_id, title, source, posted_at, summary, sentiment, reason, category))
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_posted_news_category_posted_at ON posted_news (category, posted_at DESC)")
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
                 conn.execute("""
-                    INSERT OR IGNORE INTO posted_news (id, title, source, posted_at, summary, sentiment, reason)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (news_id, title, source, posted_at, summary, sentiment, reason))
+                    INSERT OR IGNORE INTO posted_news (id, title, source, posted_at, summary, sentiment, reason, category)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (news_id, title, source, posted_at, summary, sentiment, reason, category))
                 conn.commit()
         cache_clear()
     except Exception as e:
@@ -211,6 +235,7 @@ def cleanup_telegram_log(hours: int = 6):
                 )
             """, (hours,))
             deleted = cur.rowcount
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_posted_news_category_posted_at ON posted_news (category, posted_at DESC)")
             conn.commit(); cur.close(); conn.close()
         else:
             with get_sqlite_conn() as conn:
@@ -270,8 +295,8 @@ def get_news_by_id(news_id: str):
 # get_news — مع cache
 # ============================================================
 
-def get_news(page: int = 1, per_page: int = 20, search: str = None):
-    cache_key = f"news_{page}_{per_page}_{search}"
+def get_news(page: int = 1, per_page: int = 20, search: str = None, category: str = None):
+    cache_key = f"news_{page}_{per_page}_{search}_{category}"
     cached = cache_get(cache_key)
     if cached:
         return cached
@@ -281,26 +306,34 @@ def get_news(page: int = 1, per_page: int = 20, search: str = None):
         if USE_POSTGRES:
             conn = get_pg_conn()
             cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            where = []
+            params = []
             if search:
-                cur.execute("SELECT * FROM posted_news WHERE title ILIKE %s ORDER BY posted_at DESC LIMIT %s OFFSET %s",
-                           (f"%{search}%", per_page, offset))
-                rows = cur.fetchall()
-                cur.execute("SELECT COUNT(*) as count FROM posted_news WHERE title ILIKE %s", (f"%{search}%",))
-            else:
-                cur.execute("SELECT * FROM posted_news ORDER BY posted_at DESC LIMIT %s OFFSET %s", (per_page, offset))
-                rows = cur.fetchall()
-                cur.execute("SELECT COUNT(*) as count FROM posted_news")
+                where.append("title ILIKE %s")
+                params.append(f"%{search}%")
+            if category:
+                where.append("category = %s")
+                params.append(category)
+            where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+            cur.execute(f"SELECT * FROM posted_news{where_sql} ORDER BY posted_at DESC LIMIT %s OFFSET %s", tuple(params + [per_page, offset]))
+            rows = cur.fetchall()
+            cur.execute(f"SELECT COUNT(*) as count FROM posted_news{where_sql}", tuple(params))
             total = cur.fetchone()["count"]
             cur.close(); conn.close()
             result = [dict(r) for r in rows], total
         else:
             with get_sqlite_conn() as conn:
+                where = []
+                params = []
                 if search:
-                    rows  = conn.execute("SELECT * FROM posted_news WHERE title LIKE ? ORDER BY posted_at DESC LIMIT ? OFFSET ?", (f"%{search}%", per_page, offset)).fetchall()
-                    total = conn.execute("SELECT COUNT(*) FROM posted_news WHERE title LIKE ?", (f"%{search}%",)).fetchone()[0]
-                else:
-                    rows  = conn.execute("SELECT * FROM posted_news ORDER BY posted_at DESC LIMIT ? OFFSET ?", (per_page, offset)).fetchall()
-                    total = conn.execute("SELECT COUNT(*) FROM posted_news").fetchone()[0]
+                    where.append("title LIKE ?")
+                    params.append(f"%{search}%")
+                if category:
+                    where.append("category = ?")
+                    params.append(category)
+                where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+                rows  = conn.execute(f"SELECT * FROM posted_news{where_sql} ORDER BY posted_at DESC LIMIT ? OFFSET ?", tuple(params + [per_page, offset])).fetchall()
+                total = conn.execute(f"SELECT COUNT(*) FROM posted_news{where_sql}", tuple(params)).fetchone()[0]
                 result = [dict(r) for r in rows], total
 
         cache_set(cache_key, result)
